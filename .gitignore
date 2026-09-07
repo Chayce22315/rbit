@@ -1,0 +1,49 @@
+# xcode / swift
+DerivedData/
+.build/
+*.xcuserstate
+xcuserdata/
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# swift package manager
+.swiftpm/
+Package.resolved
+
+# macos
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# build artifacts
+build/
+Build/
+*.ipa
+*.app
+*.dSYM
+*.dSYM.zip
+
+# signing / provisioning
+*.p12
+*.mobileprovision
+*.provisionprofile
+*.cer
+*.pem
+
+# local secrets
+.env
+.env.*
+!.env.example
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# temporary files
+*.tmp
+*.temp
