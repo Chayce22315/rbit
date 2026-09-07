@@ -9,21 +9,16 @@ on:
 
 jobs:
   build:
-    runs-on: macos-26
+    # github's xcode-27 image runs macos 27 on arm64.
+    runs-on: xcode-27
 
     steps:
       - name: checkout
         uses: actions/checkout@v4
 
-      - name: select xcode 27
+      - name: verify macos 27 and xcode 27
         run: |
-          XCODE_APP=$(ls -d /Applications/Xcode_27*.app 2>/dev/null | head -n 1)
-          if [ -z "$XCODE_APP" ]; then
-            echo "xcode 27 was not found on this runner"
-            xcodebuild -version
-            exit 1
-          fi
-          sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          sw_vers -productVersion
           xcodebuild -version
 
       - name: build unsigned archive
