@@ -11,7 +11,6 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { proxy in
             let metrics = LayoutMetrics(height: proxy.size.height)
-
             TabView(selection: $selectedTab) {
                 home(metrics: metrics)
                     .tabItem { Label("home", systemImage: "house.fill") }
@@ -19,7 +18,7 @@ struct ContentView: View {
                 library(metrics: metrics)
                     .tabItem { Label("apps", systemImage: "square.grid.2x2.fill") }
                     .tag(1)
-                activity(metrics: metrics)
+                activity(metrics)
                     .tabItem { Label("activity", systemImage: "clock.arrow.circlepath") }
                     .tag(2)
             }
