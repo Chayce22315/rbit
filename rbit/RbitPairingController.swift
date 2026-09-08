@@ -103,7 +103,6 @@ final class RbitPairingController: ObservableObject {
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
-            var result = RbitPairingResult(error: nil, deviceName: nil, deviceModel: nil, deviceUDID: nil, pairingFilePath: nil)
 
             let callbackReady: RbitReadyCallback = { context, serviceID, port, keys, values, count in
                 guard let context else { return }
@@ -131,22 +130,22 @@ final class RbitPairingController: ObservableObject {
                 }
             }
 
-            let status = RbitPairingBridge.shared.runHost(
+            let call = RbitPairingBridge.shared.runHost(
                 name: "rbit",
                 model: "Mac17,7",
                 outputPath: outputURL.path,
                 context: context,
                 ready: callbackReady,
-                pin: callbackPin,
-                result: &result
+                pin: callbackPin
             )
 
-            let error = result.error.map { String(cString: $0) }
-            let deviceName = result.deviceName.map { String(cString: $0) } ?? "iphone"
-            let deviceModel = result.deviceModel.map { String(cString: $0) } ?? "unknown"
-            let deviceUDID = result.deviceUDID.map { String(cString: $0) } ?? "unknown"
-
-            rbit_pairing_result_free(&result)
+            let status = call.status
+            var result = call.result
+            let error = RbitPairingBridge.shared.string(result.error)
+            let deviceName = RbitPairingBridge.shared.string(result.deviceName) ?? "iphone"
+            let deviceModel = RbitPairingBridge.shared.string(result.deviceModel) ?? "unknown"
+            let deviceUDID = RbitPairingBridge.shared.string(result.deviceUDID) ?? "unknown"
+            RbitPairingBridge.shared.free(&result)
 
             Task { @MainActor in
                 guard self.workerStarted else { return }
@@ -204,11 +203,11 @@ final class RbitPairingController: ObservableObject {
     }
 
     private func makePairingFileURL() -> URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("rbit", isDirectory: true)
             .appendingPathComponent("pairing", isDirectory: true)
-        try? FileManager.default.createDirectory(at: support, withIntermediateDirectories: true)
-        return support.appendingPathComponent("rp_pairing_file.plist")
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        return directory.appendingPathComponent("rp_pairing_file.plist")
     }
 
     private func finish(success: Bool, paired: (String, String, String)? = nil, error: String? = nil) {
@@ -225,9 +224,11 @@ final class RbitPairingController: ObservableObject {
     private final class PairingServiceDelegate: NSObject, NetServiceDelegate {
         weak var controller: RbitPairingController?
         init(controller: RbitPairingController) { self.controller = controller }
+
         func netServiceDidPublish(_ sender: NetService) {
             controller?.phase = .waitingForDevice
         }
+
         func netService(_ sender: NetService, didNotPublish errorDict: [String : NSNumber]) {
             controller?.phase = .failed("could not advertise rbit for pairing (\(errorDict)).")
         }
