@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 struct RbitAppItem: Identifiable, Hashable {
@@ -26,7 +27,13 @@ final class RbitStore: ObservableObject {
         activity.insert(message, at: 0)
     }
 
-    func importDemoIPA(name: String) {
+    func importIPA(url: URL) {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer {
+            if accessed { url.stopAccessingSecurityScopedResource() }
+        }
+
+        let name = url.deletingPathExtension().lastPathComponent
         importedApps.insert(
             RbitAppItem(
                 name: name,
