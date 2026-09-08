@@ -18,7 +18,7 @@ struct ContentView: View {
                 library
                     .tabItem { Label("apps", systemImage: "square.grid.2x2.fill") }
                     .tag(1)
-                activity(metrics: metrics)
+                activity(metrics)
                     .tabItem { Label("activity", systemImage: "clock.arrow.circlepath") }
                     .tag(2)
             }
