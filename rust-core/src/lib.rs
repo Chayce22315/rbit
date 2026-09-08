@@ -177,8 +177,8 @@ fn publish_metadata(
         .iter()
         .filter_map(|(_, value)| CString::new(value.as_str()).ok())
         .collect();
-    let key_ptrs: Vec<*const c_char> = keys.iter().map(CString::as_ptr).collect();
-    let value_ptrs: Vec<*const c_char> = values.iter().map(CString::as_ptr).collect();
+    let key_ptrs: Vec<*const c_char> = keys.iter().map(|value| value.as_c_str().as_ptr()).collect();
+    let value_ptrs: Vec<*const c_char> = values.iter().map(|value| value.as_c_str().as_ptr()).collect();
     let Ok(service) = CString::new(service_id) else { return };
 
     callback(
