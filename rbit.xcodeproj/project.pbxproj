@@ -29,7 +29,7 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000400000000000000001 /* rbit */ = {isa = PBXNativeTarget; buildConfigurationList = A10000610000000000000001; buildPhases = (A10000500000000000000001, A10000200000000000000001, A10000510000000000000000001); buildRules = (); dependencies = (); name = rbit; productName = rbit; productReference = A10000100000000000000001; productType = "com.apple.product-type.application"; };
+		A10000400000000000000001 /* rbit */ = {isa = PBXNativeTarget; buildConfigurationList = A10000610000000000000001; buildPhases = (A10000500000000000000001, A10000200000000000000001, A10000510000000000000001); buildRules = (); dependencies = (); name = rbit; productName = rbit; productReference = A10000100000000000000001; productType = "com.apple.product-type.application"; };
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
