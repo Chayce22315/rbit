@@ -38,6 +38,11 @@ private func rbit_pairing_run_host(
 @_silgen_name("rbit_pairing_result_free")
 private func rbit_pairing_result_free(_ result: UnsafeMutablePointer<RbitPairingResult>?)
 
+struct RbitPairingCallResult {
+    let status: Int32
+    var result: RbitPairingResult
+}
+
 final class RbitPairingBridge {
     static let shared = RbitPairingBridge()
     private init() {}
@@ -49,21 +54,28 @@ final class RbitPairingBridge {
         context: UnsafeMutableRawPointer?,
         ready: RbitReadyCallback?,
         pin: RbitPinCallback?
-    ) -> RbitPairingResult {
+    ) -> RbitPairingCallResult {
         var result = RbitPairingResult(error: nil, deviceName: nil, deviceModel: nil, deviceUDID: nil, pairingFilePath: nil)
-        name.withCString { namePtr in
+        let status = name.withCString { namePtr in
             model.withCString { modelPtr in
                 outputPath.withCString { outputPtr in
                     "0.0.0.0".withCString { bindPtr in
-                        _ = rbit_pairing_run_host(bindPtr, 0, namePtr, modelPtr, outputPtr, ready, pin, context, &result)
+                        rbit_pairing_run_host(bindPtr, 0, namePtr, modelPtr, outputPtr, ready, pin, context, &result)
                     }
                 }
             }
         }
-        return result
+        return RbitPairingCallResult(status: status, result: result)
     }
 
-    func freeResult(_ result: UnsafeMutablePointer<RbitPairingResult>) {
-        rbit_pairing_result_free(result)
+    func string(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
+        guard let pointer else { return nil }
+        return String(cString: pointer)
+    }
+
+    func free(_ result: inout RbitPairingResult) {
+        withUnsafeMutablePointer(to: &result) { pointer in
+            rbit_pairing_result_free(pointer)
+        }
     }
 }
