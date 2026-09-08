@@ -2,14 +2,13 @@ name: build unsigned ipa
 
 on:
   push:
-    branches: [main, 'init/**']
+    branches: [main, 'init/**', 'feat/**', 'fix/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
 
 jobs:
   build:
-    # github's xcode-27 image runs macos 27 on arm64.
     runs-on: xcode-27
 
     steps:
@@ -20,6 +19,12 @@ jobs:
         run: |
           sw_vers -productVersion
           xcodebuild -version
+
+      - name: prepare rust
+        run: |
+          rustup default stable
+          rustc --version
+          cargo --version
 
       - name: build unsigned archive
         run: |
