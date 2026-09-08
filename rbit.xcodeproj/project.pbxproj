@@ -66,7 +66,7 @@
 			outputPaths = ();
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -e\nif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  \"$SRCROOT/rust-core/build-rust.sh\" device\nelse\n  \"$SRCROOT/rust-core/build-rust.sh\" simulator\nfi\n";
+			shellScript = "set -e\nif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  bash \"$SRCROOT/rust-core/build-rust.sh\" device\nelse\n  bash \"$SRCROOT/rust-core/build-rust.sh\" simulator\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
