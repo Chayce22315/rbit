@@ -16,7 +16,7 @@ struct ContentView: View {
                 home(metrics: metrics)
                     .tabItem { Label("home", systemImage: "house.fill") }
                     .tag(0)
-                library(metrics: metrics)
+                library
                     .tabItem { Label("apps", systemImage: "square.grid.2x2.fill") }
                     .tag(1)
                 activity(metrics: metrics)
@@ -164,7 +164,7 @@ struct ContentView: View {
         .cardStyle(metrics)
     }
 
-    private func library(_ metrics: LayoutMetrics) -> some View {
+    private var library: some View {
         NavigationStack {
             Group {
                 if store.importedApps.isEmpty {
@@ -176,28 +176,28 @@ struct ContentView: View {
                 } else {
                     List {
                         ForEach(store.importedApps) { app in
-                            HStack(spacing: metrics.cardSpacing) {
+                            HStack(spacing: 14) {
                                 Image(systemName: app.systemImage)
-                                    .font(metrics.rowIconFont)
-                                    .frame(width: metrics.rowIconBox, height: metrics.rowIconBox)
+                                    .font(.title3)
+                                    .frame(width: 46, height: 46)
                                     .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
 
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(app.name)
-                                        .font(metrics.rowTitleFont)
+                                        .font(.headline)
                                         .lineLimit(1)
                                     Text(app.subtitle)
-                                        .font(metrics.captionFont)
+                                        .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
 
                                 Spacer(minLength: 8)
 
                                 Text(app.status)
-                                    .font(metrics.captionFont)
+                                    .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
-                            .padding(.vertical, metrics.rowVerticalPadding)
+                            .padding(.vertical, 6)
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button(role: .destructive) {
                                     store.removeApp(app)
