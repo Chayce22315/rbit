@@ -58,7 +58,7 @@ final class RbitPairingController: ObservableObject {
                 phase = .failed("local network permission is required. enable it in settings and try again.")
                 return
             }
-            submitBackgroundTask()
+            await submitBackgroundTask()
         }
     }
 
@@ -72,7 +72,7 @@ final class RbitPairingController: ObservableObject {
         phase = .idle
     }
 
-    private func submitBackgroundTask() {
+    private func submitBackgroundTask() async {
         phase = .waitingForDevice
         let request = BGContinuedProcessingTaskRequest(
             identifier: Self.taskIdentifier,
@@ -81,11 +81,12 @@ final class RbitPairingController: ObservableObject {
         )
         request.strategy = .queue
 
-        BGTaskScheduler.shared.submit(request) { [weak self] error in
-            guard let error else { return }
-            Task { @MainActor in
-                self?.phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
-            }
+        do {
+            try await BGTaskScheduler.shared.submitTaskRequest(request)
+        } catch {
+            phase = .failed(
+                "could not start the continuous pairing task: \(error.localizedDescription)"
+            )
         }
     }
 
