@@ -81,10 +81,13 @@ final class RbitPairingController: ObservableObject {
         )
         request.strategy = .queue
 
-        BGTaskScheduler.shared.submit(request) { [weak self] error in
-            guard let error else { return }
-            Task { @MainActor in
-                self?.phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try await BGTaskScheduler.shared.submitTaskRequest(request)
+            } catch {
+                await MainActor.run {
+                    self?.phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
+                }
             }
         }
     }
