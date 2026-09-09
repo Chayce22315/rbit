@@ -26,6 +26,7 @@ final class RbitPairingController: ObservableObject {
     private var serviceDelegate: PairingServiceDelegate?
     private var backgroundTask: BGContinuedProcessingTask?
     private var workerStarted = false
+    private var permissionBrowser: NWBrowser?
 
     private init() {}
 
@@ -50,19 +51,14 @@ final class RbitPairingController: ObservableObject {
     func start() {
         guard !isRunning else { return }
         workerStarted = false
-        phase = .requestingNetwork
         pairingFileURL = nil
-
-        Task { @MainActor in
-            guard await requestLocalNetwork() else {
-                phase = .failed("local network permission is required. enable it in settings and try again.")
-                return
-            }
-            await submitBackgroundTask()
-        }
+        phase = .requestingNetwork
+        requestLocalNetworkAndContinue()
     }
 
     func cancel() {
+        permissionBrowser?.cancel()
+        permissionBrowser = nil
         backgroundTask?.setTaskCompleted(success: false)
         backgroundTask = nil
         service?.stop()
@@ -70,6 +66,62 @@ final class RbitPairingController: ObservableObject {
         serviceDelegate = nil
         workerStarted = false
         phase = .idle
+    }
+
+    private func requestLocalNetworkAndContinue() {
+        permissionBrowser?.cancel()
+
+        let browser = NWBrowser(
+            for: .bonjour(type: Self.serviceType, domain: nil),
+            using: .tcp
+        )
+        permissionBrowser = browser
+
+        browser.stateUpdateHandler = { [weak self, weak browser] state in
+            guard let self else { return }
+
+            Task { @MainActor in
+                switch state {
+                case .ready:
+                    guard self.permissionBrowser === browser else { return }
+                    self.permissionBrowser?.cancel()
+                    self.permissionBrowser = nil
+                    await self.submitBackgroundTask()
+
+                case .waiting(let error):
+                    if Self.isLocalNetworkDenied(error) {
+                        self.permissionBrowser?.cancel()
+                        self.permissionBrowser = nil
+                        self.phase = .failed(
+                            "rbit cannot access the local network. allow rbit in Settings › Privacy & Security › Local Network, then try again."
+                        )
+                    }
+
+                case .failed(let error):
+                    self.permissionBrowser?.cancel()
+                    self.permissionBrowser = nil
+                    self.phase = .failed(
+                        "could not access the local network: \(error.localizedDescription)"
+                    )
+
+                case .cancelled:
+                    if self.phase == .requestingNetwork {
+                        self.permissionBrowser = nil
+                    }
+
+                default:
+                    break
+                }
+            }
+        }
+
+        browser.browseResultsChangedHandler = { _, _ in }
+        browser.start(queue: .main)
+    }
+
+    private static func isLocalNetworkDenied(_ error: NWError) -> Bool {
+        guard case .dns(let code) = error else { return false }
+        return Int(code) == kDNSServiceErr_PolicyDenied
     }
 
     private func submitBackgroundTask() async {
@@ -103,10 +155,6 @@ final class RbitPairingController: ObservableObject {
         }
 
         let outputURL = makePairingFileURL()
-        // Raw pointers are passed only to the C callbacks. Store the address as
-        // an integer so Swift 6 does not capture a non-Sendable pointer in the
-        // worker closure. The controller remains alive for the duration of the
-        // pairing worker through the main-actor state.
         let contextBits = UInt(bitPattern: Unmanaged.passUnretained(self).toOpaque())
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
@@ -172,34 +220,6 @@ final class RbitPairingController: ObservableObject {
         }
     }
 
-    private func requestLocalNetwork() async -> Bool {
-        await withCheckedContinuation { continuation in
-            let browser = NWBrowser(for: .bonjour(type: Self.serviceType, domain: nil), using: .tcp)
-            let gate = ContinuationGate()
-
-            browser.stateUpdateHandler = { state in
-                switch state {
-                case .ready, .waiting:
-                    guard gate.claim() else { return }
-                    browser.cancel()
-                    continuation.resume(returning: true)
-                case .failed:
-                    guard gate.claim() else { return }
-                    browser.cancel()
-                    continuation.resume(returning: false)
-                default:
-                    break
-                }
-            }
-            browser.start(queue: .global(qos: .utility))
-            DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-                guard gate.claim() else { return }
-                browser.cancel()
-                continuation.resume(returning: false)
-            }
-        }
-    }
-
     private func publishPairingService(name: String, port: UInt16, txt: [String: Data]) {
         service?.stop()
         let netService = NetService(domain: "local.", type: Self.serviceType, name: name, port: Int32(port))
@@ -222,6 +242,8 @@ final class RbitPairingController: ObservableObject {
     }
 
     private func finish(success: Bool, paired: (String, String, String)? = nil, error: String? = nil) {
+        permissionBrowser?.cancel()
+        permissionBrowser = nil
         workerStarted = false
         backgroundTask?.setTaskCompleted(success: success)
         backgroundTask = nil
@@ -229,19 +251,6 @@ final class RbitPairingController: ObservableObject {
             phase = .paired(name: paired.0, model: paired.1, udid: paired.2)
         } else {
             phase = .failed(error ?? "pairing failed")
-        }
-    }
-
-    private final class ContinuationGate: @unchecked Sendable {
-        private let lock = NSLock()
-        private var claimed = false
-
-        func claim() -> Bool {
-            lock.lock()
-            defer { lock.unlock() }
-            guard !claimed else { return false }
-            claimed = true
-            return true
         }
     }
 
