@@ -5,6 +5,7 @@ struct RealPairingView: View {
     @StateObject private var pairing = RbitPairingController.shared
     @StateObject private var vpn = LocalDevVPNMonitor.shared
     @Environment(\.dismiss) private var dismiss
+    @State private var showingNetworkRequirement = false
 
     var body: some View {
         NavigationStack {
@@ -99,7 +100,7 @@ struct RealPairingView: View {
             Text("how it works")
                 .font(.headline)
 
-            instructionRow("1", "tap start pairing. ios will request access to your local wi-fi network.")
+            instructionRow("1", "tap start pairing. rbit will explain the local wi-fi permission it needs before ios shows its prompt.")
             instructionRow("2", "open Settings › Privacy & Security › Developer Mode on this iphone.")
             instructionRow("3", "choose rbit when ios shows the pairing request.")
             instructionRow("4", "enter the six-digit pin shown by rbit.")
@@ -122,6 +123,30 @@ struct RealPairingView: View {
 
             Spacer(minLength: 0)
         }
+    }
+
+    private var networkRequirementCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label("local network access is required", systemImage: "wifi")
+                .font(.headline)
+
+            Text("rbit needs access to your local wi-fi network to pair with and communicate with your iphone. ios will show its permission prompt after you continue.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+
+            Text("this is only used for the local ios 27 pairing connection. rbit does not need a cloud server for this step.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Button("continue and request access") {
+                showingNetworkRequirement = false
+                pairing.start()
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(16)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
     @ViewBuilder
@@ -175,8 +200,10 @@ struct RealPairingView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
-                Button("try again") { pairing.start() }
-                    .buttonStyle(.borderedProminent)
+                Button("try again") {
+                    showingNetworkRequirement = true
+                }
+                .buttonStyle(.borderedProminent)
             }
             .frame(maxWidth: .infinity)
 
@@ -207,7 +234,7 @@ struct RealPairingView: View {
         case .idle:
             VStack(spacing: 10) {
                 Button {
-                    pairing.start()
+                    showingNetworkRequirement = true
                 } label: {
                     Label("start pairing", systemImage: "link.badge.plus")
                         .frame(maxWidth: .infinity)
@@ -215,7 +242,7 @@ struct RealPairingView: View {
                 .buttonStyle(.borderedProminent)
 
                 if !vpn.connected {
-                    Text("you can start here to trigger the local wi-fi permission request. LocalDevVPN is still required before the final pairing handshake.")
+                    Text("LocalDevVPN is still required before the final pairing handshake.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .multilineTextAlignment(.center)
