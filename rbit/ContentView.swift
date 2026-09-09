@@ -15,7 +15,7 @@ struct ContentView: View {
                 home(metrics: metrics)
                     .tabItem { Label("home", systemImage: "house.fill") }
                     .tag(0)
-                library(metrics: metrics)
+                library(metrics)
                     .tabItem { Label("apps", systemImage: "square.grid.2x2.fill") }
                     .tag(1)
                 activity(metrics)
