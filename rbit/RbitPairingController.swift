@@ -23,6 +23,7 @@ final class RbitPairingController: ObservableObject {
     @Published private(set) var serviceName: String?
 
     private var service: NetService?
+    private var serviceDelegate: PairingServiceDelegate?
     private var backgroundTask: BGContinuedProcessingTask?
     private var workerStarted = false
 
@@ -66,6 +67,7 @@ final class RbitPairingController: ObservableObject {
         backgroundTask = nil
         service?.stop()
         service = nil
+        serviceDelegate = nil
         workerStarted = false
         phase = .idle
     }
@@ -79,10 +81,11 @@ final class RbitPairingController: ObservableObject {
         )
         request.strategy = .queue
 
-        do {
-            try BGTaskScheduler.shared.submit(request)
-        } catch {
-            phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
+        BGTaskScheduler.shared.submit(request) { [weak self] error in
+            guard let error else { return }
+            Task { @MainActor in
+                self?.phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
+            }
         }
     }
 
@@ -99,7 +102,11 @@ final class RbitPairingController: ObservableObject {
         }
 
         let outputURL = makePairingFileURL()
-        let context = Unmanaged.passUnretained(self).toOpaque()
+        // Raw pointers are passed only to the C callbacks. Store the address as
+        // an integer so Swift 6 does not capture a non-Sendable pointer in the
+        // worker closure. The controller remains alive for the duration of the
+        // pairing worker through the main-actor state.
+        let contextBits = UInt(bitPattern: Unmanaged.passUnretained(self).toOpaque())
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -130,6 +137,7 @@ final class RbitPairingController: ObservableObject {
                 }
             }
 
+            let context = UnsafeMutableRawPointer(bitPattern: contextBits)
             let call = RbitPairingBridge.shared.runHost(
                 name: "rbit",
                 model: "Mac17,7",
@@ -152,6 +160,7 @@ final class RbitPairingController: ObservableObject {
                 if status == 0 {
                     self.service?.stop()
                     self.service = nil
+                    self.serviceDelegate = nil
                     self.pairingFileURL = outputURL
                     self.backgroundTask?.progress.completedUnitCount = 100
                     self.finish(success: true, paired: (deviceName, deviceModel, deviceUDID))
@@ -165,16 +174,16 @@ final class RbitPairingController: ObservableObject {
     private func requestLocalNetwork() async -> Bool {
         await withCheckedContinuation { continuation in
             let browser = NWBrowser(for: .bonjour(type: Self.serviceType, domain: nil), using: .tcp)
-            var finished = false
+            let gate = ContinuationGate()
+
             browser.stateUpdateHandler = { state in
-                guard !finished else { return }
                 switch state {
                 case .ready, .waiting:
-                    finished = true
+                    guard gate.claim() else { return }
                     browser.cancel()
                     continuation.resume(returning: true)
                 case .failed:
-                    finished = true
+                    guard gate.claim() else { return }
                     browser.cancel()
                     continuation.resume(returning: false)
                 default:
@@ -183,8 +192,7 @@ final class RbitPairingController: ObservableObject {
             }
             browser.start(queue: .global(qos: .utility))
             DispatchQueue.global().asyncAfter(deadline: .now() + 3) {
-                guard !finished else { return }
-                finished = true
+                guard gate.claim() else { return }
                 browser.cancel()
                 continuation.resume(returning: false)
             }
@@ -195,7 +203,9 @@ final class RbitPairingController: ObservableObject {
         service?.stop()
         let netService = NetService(domain: "local.", type: Self.serviceType, name: name, port: Int32(port))
         netService.setTXTRecord(NetService.data(fromTXTRecord: txt))
-        netService.delegate = PairingServiceDelegate(controller: self)
+        let delegate = PairingServiceDelegate(controller: self)
+        netService.delegate = delegate
+        serviceDelegate = delegate
         netService.publish()
         service = netService
         serviceName = name
@@ -221,16 +231,33 @@ final class RbitPairingController: ObservableObject {
         }
     }
 
+    private final class ContinuationGate: @unchecked Sendable {
+        private let lock = NSLock()
+        private var claimed = false
+
+        func claim() -> Bool {
+            lock.lock()
+            defer { lock.unlock() }
+            guard !claimed else { return false }
+            claimed = true
+            return true
+        }
+    }
+
     private final class PairingServiceDelegate: NSObject, NetServiceDelegate {
         weak var controller: RbitPairingController?
         init(controller: RbitPairingController) { self.controller = controller }
 
         func netServiceDidPublish(_ sender: NetService) {
-            controller?.phase = .waitingForDevice
+            Task { @MainActor [weak controller] in
+                controller?.phase = .waitingForDevice
+            }
         }
 
         func netService(_ sender: NetService, didNotPublish errorDict: [String : NSNumber]) {
-            controller?.phase = .failed("could not advertise rbit for pairing (\(errorDict)).")
+            Task { @MainActor [weak controller] in
+                controller?.phase = .failed("could not advertise rbit for pairing (\(errorDict)).")
+            }
         }
     }
 }
