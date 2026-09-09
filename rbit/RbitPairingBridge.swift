@@ -43,7 +43,9 @@ struct RbitPairingCallResult {
     var result: RbitPairingResult
 }
 
-final class RbitPairingBridge {
+/// The bridge contains no mutable state. The singleton is only a convenient
+/// namespace for the C FFI calls, so it is safe to share between worker tasks.
+final class RbitPairingBridge: @unchecked Sendable {
     static let shared = RbitPairingBridge()
     private init() {}
 
