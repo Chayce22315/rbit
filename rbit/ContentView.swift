@@ -86,29 +86,15 @@ struct ContentView: View {
                         endPoint: .bottomTrailing
                     )
                 )
-
-            Circle()
-                .fill(.white.opacity(0.13))
-                .frame(width: 150, height: 150)
-                .offset(x: 205, y: -50)
-
-            Circle()
-                .fill(.white.opacity(0.08))
-                .frame(width: 110, height: 110)
-                .offset(x: 260, y: 55)
-
+            Circle().fill(.white.opacity(0.13)).frame(width: 150, height: 150).offset(x: 205, y: -50)
+            Circle().fill(.white.opacity(0.08)).frame(width: 110, height: 110).offset(x: 260, y: 55)
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 9) {
-                    Image(systemName: "arrow.down.app.fill")
-                        .font(.title2.bold())
-                    Text("rbit")
-                        .font(metrics.titleFont.bold())
+                    Image(systemName: "arrow.down.app.fill").font(.title2.bold())
+                    Text("rbit").font(metrics.titleFont.bold())
                 }
-
                 Text("research • brainstorm • implement • try again")
-                    .font(metrics.captionFont.weight(.medium))
-                    .opacity(0.9)
-
+                    .font(metrics.captionFont.weight(.medium)).opacity(0.9)
                 HStack(spacing: 8) {
                     HeroBadge(title: vpn.connected ? "vpn ready" : "vpn offline", icon: vpn.connected ? "checkmark" : "xmark")
                     HeroBadge(title: pairing.isRunning ? "pairing" : (store.pairingState == .paired ? "paired" : "ready"), icon: pairing.isRunning ? "antenna.radiowaves.left.and.right" : "iphone.gen3")
@@ -125,28 +111,19 @@ struct ContentView: View {
     private func statusCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
             HStack {
-                Label("device status", systemImage: "iphone.gen3")
-                    .font(metrics.headingFont)
+                Label("device status", systemImage: "iphone.gen3").font(metrics.headingFont)
                 Spacer()
-                Circle()
-                    .fill(vpn.connected ? .green : .orange)
-                    .frame(width: 9, height: 9)
+                Circle().fill(vpn.connected ? .green : .orange).frame(width: 9, height: 9)
             }
-
             HStack(spacing: 9) {
                 StatusPill(title: "localdevvpn", active: vpn.connected, detail: vpn.interfaceName ?? "not detected", metrics: metrics)
                 StatusPill(title: "pairing", active: store.pairingState == .paired, detail: store.pairingState.rawValue, metrics: metrics)
                 StatusPill(title: "apple id", active: store.appleAccountConnected, detail: store.appleAccountConnected ? "connected" : "not connected", metrics: metrics)
             }
-
             Button { showingPairing = true } label: {
-                Label(
-                    store.pairingState == .paired ? "manage pairing" : "pair this iphone",
-                    systemImage: store.pairingState == .paired ? "checkmark.circle.fill" : "link"
-                )
-                .font(metrics.buttonFont.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, metrics.buttonVerticalPadding)
+                Label(store.pairingState == .paired ? "manage pairing" : "pair this iphone", systemImage: store.pairingState == .paired ? "checkmark.circle.fill" : "link")
+                    .font(metrics.buttonFont.weight(.semibold))
+                    .frame(maxWidth: .infinity).padding(.vertical, metrics.buttonVerticalPadding)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -157,23 +134,16 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Label("install an ipa", systemImage: "shippingbox.fill")
-                        .font(metrics.headingFont)
+                    Label("install an ipa", systemImage: "shippingbox.fill").font(metrics.headingFont)
                     Text("keep imported apps on-device and ready for the signing pipeline.")
-                        .font(metrics.bodyFont)
-                        .foregroundStyle(.secondary)
+                        .font(metrics.bodyFont).foregroundStyle(.secondary)
                 }
                 Spacer()
-                Text("\(store.importedApps.count)")
-                    .font(.title2.bold().monospacedDigit())
-                    .foregroundStyle(.tint)
+                Text("\(store.importedApps.count)").font(.title2.bold().monospacedDigit()).foregroundStyle(.tint)
             }
-
             Button { showingImporter = true } label: {
-                Label("add ipa", systemImage: "plus")
-                    .font(metrics.buttonFont.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, metrics.buttonVerticalPadding)
+                Label("add ipa", systemImage: "plus").font(metrics.buttonFont.weight(.semibold))
+                    .frame(maxWidth: .infinity).padding(.vertical, metrics.buttonVerticalPadding)
             }
             .buttonStyle(.borderedProminent)
         }
@@ -182,9 +152,7 @@ struct ContentView: View {
 
     private func overviewCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
-            Text("pipeline")
-                .font(metrics.headingFont)
-
+            Text("pipeline").font(metrics.headingFont)
             HStack(spacing: 0) {
                 PipelineStep(icon: "doc.badge.plus", title: "import", active: !store.importedApps.isEmpty)
                 PipelineConnector(active: !store.importedApps.isEmpty)
@@ -192,19 +160,15 @@ struct ContentView: View {
                 PipelineConnector(active: false)
                 PipelineStep(icon: "iphone.gen3", title: "install", active: false)
             }
-
             Text("import is ready. signing and device installation are the next pipeline stages.")
-                .font(metrics.captionFont)
-                .foregroundStyle(.secondary)
+                .font(metrics.captionFont).foregroundStyle(.secondary)
         }
         .cardStyle(metrics)
     }
 
     private func quickActions(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
-            Text("quick actions")
-                .font(metrics.headingFont)
-
+            Text("quick actions").font(metrics.headingFont)
             HStack(spacing: metrics.cardSpacing) {
                 QuickAction(title: "pair", icon: "link", tint: .indigo, metrics: metrics) { showingPairing = true }
                 QuickAction(title: "apps", icon: "square.grid.2x2.fill", tint: .purple, metrics: metrics) { selectedTab = 1 }
@@ -216,27 +180,18 @@ struct ContentView: View {
     private func recentCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
             HStack {
-                Label("recent", systemImage: "sparkles")
-                    .font(metrics.headingFont)
+                Label("recent", systemImage: "sparkles").font(metrics.headingFont)
                 Spacer()
-                Text("\(store.activity.count)")
-                    .font(metrics.captionFont.bold().monospacedDigit())
-                    .foregroundStyle(.secondary)
+                Text("\(store.activity.count)").font(metrics.captionFont.bold().monospacedDigit()).foregroundStyle(.secondary)
             }
-
             if store.activity.isEmpty {
-                Text("nothing has happened yet")
-                    .font(metrics.bodyFont)
-                    .foregroundStyle(.secondary)
+                Text("nothing has happened yet").font(metrics.bodyFont).foregroundStyle(.secondary)
             } else {
                 ForEach(Array(store.activity.prefix(metrics.recentRows).enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: index == 0 ? "bolt.fill" : "checkmark.circle.fill")
                             .foregroundStyle(index == 0 ? Color.indigo : Color.secondary)
-                        Text(item)
-                            .font(metrics.bodyFont)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                        Text(item).font(metrics.bodyFont).foregroundStyle(.secondary).lineLimit(2)
                         Spacer(minLength: 0)
                     }
                 }
@@ -255,8 +210,7 @@ struct ContentView: View {
                     } description: {
                         Text("import an ipa and it will appear here with its local status.")
                     } actions: {
-                        Button("import ipa") { showingImporter = true }
-                            .buttonStyle(.borderedProminent)
+                        Button("import ipa") { showingImporter = true }.buttonStyle(.borderedProminent)
                     }
                 } else {
                     List {
@@ -264,16 +218,12 @@ struct ContentView: View {
                             ForEach(store.importedApps) { app in
                                 AppRow(app: app, metrics: metrics)
                                     .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                        Button(role: .destructive) {
-                                            store.removeApp(app)
-                                        } label: {
+                                        Button(role: .destructive) { store.removeApp(app) } label: {
                                             Label("delete", systemImage: "trash")
                                         }
                                     }
                             }
-                        } header: {
-                            Text("\(store.importedApps.count) imported")
-                        }
+                        } header: { Text("\(store.importedApps.count) imported") }
                     }
                     .scrollContentBackground(.hidden)
                     .background(Color(uiColor: .systemGroupedBackground))
@@ -282,10 +232,7 @@ struct ContentView: View {
             .navigationTitle("apps")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingImporter = true } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("add ipa")
+                    Button { showingImporter = true } label: { Image(systemName: "plus") }.accessibilityLabel("add ipa")
                 }
             }
         }
@@ -301,18 +248,12 @@ struct ContentView: View {
                         ForEach(Array(store.activity.enumerated()), id: \.offset) { index, item in
                             HStack(alignment: .top, spacing: 12) {
                                 ZStack {
-                                    Circle()
-                                        .fill(index == 0 ? Color.indigo.opacity(0.14) : Color.secondary.opacity(0.10))
+                                    Circle().fill(index == 0 ? Color.indigo.opacity(0.14) : Color.secondary.opacity(0.10))
                                     Image(systemName: index == 0 ? "bolt.fill" : "checkmark")
-                                        .font(.caption.bold())
-                                        .foregroundStyle(index == 0 ? .indigo : .secondary)
+                                        .font(.caption.bold()).foregroundStyle(index == 0 ? .indigo : .secondary)
                                 }
                                 .frame(width: 34, height: 34)
-
-                                Text(item)
-                                    .font(metrics.bodyFont)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                    .padding(.vertical, 7)
+                                Text(item).font(metrics.bodyFont).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 7)
                             }
                         }
                     }
@@ -327,11 +268,7 @@ struct ContentView: View {
 
 private struct LayoutMetrics {
     let isTall: Bool
-
-    init(height: CGFloat) {
-        isTall = height >= 760
-    }
-
+    init(height: CGFloat) { isTall = height >= 760 }
     var horizontalPadding: CGFloat { isTall ? 20 : 16 }
     var verticalPadding: CGFloat { isTall ? 24 : 16 }
     var sectionSpacing: CGFloat { isTall ? 18 : 14 }
@@ -350,12 +287,10 @@ private struct LayoutMetrics {
 private struct HeroBadge: View {
     let title: String
     let icon: String
-
     var body: some View {
         Label(title, systemImage: icon)
             .font(.caption2.weight(.semibold))
-            .padding(.horizontal, 9)
-            .padding(.vertical, 6)
+            .padding(.horizontal, 9).padding(.vertical, 6)
             .background(.white.opacity(0.14), in: Capsule())
     }
 }
@@ -365,26 +300,16 @@ private struct StatusPill: View {
     let active: Bool
     let detail: String
     let metrics: LayoutMetrics
-
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
             HStack(spacing: 6) {
-                Circle()
-                    .fill(active ? Color.green : Color.secondary.opacity(0.35))
-                    .frame(width: 7, height: 7)
-                Text(title)
-                    .font(metrics.captionFont.weight(.semibold))
-                    .lineLimit(1)
+                Circle().fill(active ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
+                Text(title).font(metrics.captionFont.weight(.semibold)).lineLimit(1)
             }
-            Text(detail)
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
+            Text(detail).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 10)
-        .padding(.vertical, metrics.isTall ? 11 : 9)
+        .padding(.horizontal, 10).padding(.vertical, metrics.isTall ? 11 : 9)
         .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
     }
 }
@@ -393,17 +318,12 @@ private struct PipelineStep: View {
     let icon: String
     let title: String
     let active: Bool
-
     var body: some View {
         VStack(spacing: 7) {
-            Image(systemName: icon)
-                .font(.subheadline.bold())
-                .frame(width: 38, height: 38)
+            Image(systemName: icon).font(.subheadline.bold()).frame(width: 38, height: 38)
                 .foregroundStyle(active ? .white : .secondary)
                 .background(active ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.secondary.opacity(0.12)), in: Circle())
-            Text(title)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(active ? .primary : .secondary)
+            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(active ? .primary : .secondary)
         }
         .frame(maxWidth: .infinity)
     }
@@ -411,12 +331,9 @@ private struct PipelineStep: View {
 
 private struct PipelineConnector: View {
     let active: Bool
-
     var body: some View {
-        Rectangle()
-            .fill(active ? Color.indigo.opacity(0.55) : Color.secondary.opacity(0.15))
-            .frame(height: 2)
-            .padding(.bottom, 22)
+        Rectangle().fill(active ? Color.indigo.opacity(0.55) : Color.secondary.opacity(0.15))
+            .frame(height: 2).padding(.bottom, 22)
     }
 }
 
@@ -426,18 +343,13 @@ private struct QuickAction: View {
     let tint: Color
     let metrics: LayoutMetrics
     let action: () -> Void
-
     var body: some View {
         Button(action: action) {
             VStack(spacing: 7) {
-                Image(systemName: icon)
-                    .font(.headline)
-                    .foregroundStyle(tint)
-                Text(title)
-                    .font(metrics.captionFont.bold())
+                Image(systemName: icon).font(.headline).foregroundStyle(tint)
+                Text(title).font(metrics.captionFont.bold())
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, metrics.isTall ? 15 : 12)
+            .frame(maxWidth: .infinity).padding(.vertical, metrics.isTall ? 15 : 12)
             .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 17))
         }
         .buttonStyle(.plain)
@@ -447,36 +359,18 @@ private struct QuickAction: View {
 private struct AppRow: View {
     let app: RbitAppItem
     let metrics: LayoutMetrics
-
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: app.systemImage)
-                .font(metrics.rowTitleFont)
-                .foregroundStyle(.white)
+            Image(systemName: app.systemImage).font(metrics.rowTitleFont).foregroundStyle(.white)
                 .frame(width: 46, height: 46)
-                .background(
-                    LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing),
-                    in: RoundedRectangle(cornerRadius: 13)
-                )
-
+                .background(LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 13))
             VStack(alignment: .leading, spacing: 4) {
-                Text(app.name)
-                    .font(metrics.rowTitleFont)
-                    .lineLimit(1)
-                Text(app.subtitle)
-                    .font(metrics.captionFont)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                Text(app.name).font(metrics.rowTitleFont).lineLimit(1)
+                Text(app.subtitle).font(metrics.captionFont).foregroundStyle(.secondary).lineLimit(1)
             }
-
             Spacer(minLength: 6)
-
-            Text(app.status)
-                .font(.caption2.weight(.semibold))
-                .foregroundStyle(.green)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 5)
-                .background(.green.opacity(0.10), in: Capsule())
+            Text(app.status).font(.caption2.weight(.semibold)).foregroundStyle(.green)
+                .padding(.horizontal, 8).padding(.vertical, 5).background(.green.opacity(0.10), in: Capsule())
         }
         .padding(.vertical, 5)
     }
@@ -485,15 +379,46 @@ private struct AppRow: View {
 private extension View {
     func cardStyle(_ metrics: LayoutMetrics, material: Bool = true) -> some View {
         padding(metrics.isTall ? 18 : 14)
-            .background(
-                material
-                    ? AnyShapeStyle(.thinMaterial)
-                    : AnyShapeStyle(Color(uiColor: .secondarySystemBackground)),
-                in: RoundedRectangle(cornerRadius: metrics.cornerRadius)
-            )
+            .background(material ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(Color(uiColor: .secondarySystemBackground)), in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
             .overlay {
-                RoundedRectangle(cornerRadius: metrics.cornerRadius)
-                    .stroke(.white.opacity(0.18), lineWidth: 0.5)
+                RoundedRectangle(cornerRadius: metrics.cornerRadius).stroke(.white.opacity(0.18), lineWidth: 0.5)
             }
     }
 }
+
+private struct SettingsView: View {
+    @ObservedObject var store: RbitStore
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("connection") {
+                    LabeledContent("localdevvpn", value: LocalDevVPNMonitor.shared.connected ? "connected" : "not detected")
+                    LabeledContent("pairing", value: store.pairingState.rawValue)
+                }
+                Section("apple account") {
+                    Toggle("signed-in account", isOn: $store.appleAccountConnected)
+                    Text("credentials will stay on-device when the signing pipeline is connected.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("storage") {
+                    LabeledContent("imported ipas", value: "\(store.importedApps.count)")
+                    Text("imported files are kept in rbit's private application support storage.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("about") {
+                    LabeledContent("version", value: "0.3.0")
+                    LabeledContent("target", value: "ios 27")
+                    LabeledContent("pipeline", value: "local-first")
+                }
+            }
+            .navigationTitle("settings")
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { Button("done") { dismiss() } }
+            }
+        }
+    }
+}
+
+#Preview { ContentView() }
