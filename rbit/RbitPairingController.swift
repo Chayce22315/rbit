@@ -80,7 +80,7 @@ final class RbitPairingController: ObservableObject {
         request.strategy = .queue
 
         do {
-            try BGTaskScheduler.shared.submit(request)
+            try BGTaskScheduler.shared.submitTaskRequest(request) { [weak self] error in
         } catch {
             phase = .failed("could not start the continuous pairing task: \(error.localizedDescription)")
         }
