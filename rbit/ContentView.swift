@@ -232,7 +232,7 @@ struct ContentView: View {
                 ForEach(Array(store.activity.prefix(metrics.recentRows).enumerated()), id: \.offset) { index, item in
                     HStack(alignment: .top, spacing: 10) {
                         Image(systemName: index == 0 ? "bolt.fill" : "checkmark.circle.fill")
-                            .foregroundStyle(index == 0 ? .tint : .secondary)
+                            .foregroundStyle(index == 0 ? Color.indigo : Color.secondary)
                         Text(item)
                             .font(metrics.bodyFont)
                             .foregroundStyle(.secondary)
@@ -497,44 +497,3 @@ private extension View {
             }
     }
 }
-
-private struct SettingsView: View {
-    @ObservedObject var store: RbitStore
-    @Environment(\.dismiss) private var dismiss
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("connection") {
-                    LabeledContent("localdevvpn", value: LocalDevVPNMonitor.shared.connected ? "connected" : "not detected")
-                    LabeledContent("pairing", value: store.pairingState.rawValue)
-                }
-                Section("apple account") {
-                    Toggle("signed-in account", isOn: $store.appleAccountConnected)
-                    Text("credentials will stay on-device when the signing pipeline is connected.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Section("storage") {
-                    LabeledContent("imported ipas", value: "\(store.importedApps.count)")
-                    Text("imported files are kept in rbit's private application support storage.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Section("about") {
-                    LabeledContent("version", value: "0.3.0")
-                    LabeledContent("target", value: "ios 27")
-                    LabeledContent("pipeline", value: "local-first")
-                }
-            }
-            .navigationTitle("settings")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("done") { dismiss() }
-                }
-            }
-        }
-    }
-}
-
-#Preview { ContentView() }
