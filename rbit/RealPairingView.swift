@@ -9,8 +9,9 @@ struct RealPairingView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 20) {
+                VStack(spacing: 18) {
                     statusHeader
+                    networkCard
                     instructions
                     mainAction
                 }
@@ -18,6 +19,7 @@ struct RealPairingView: View {
                 .padding(20)
                 .frame(maxWidth: .infinity)
             }
+            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("pairing")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
@@ -40,10 +42,23 @@ struct RealPairingView: View {
     }
 
     private var statusHeader: some View {
-        VStack(spacing: 12) {
-            Image(systemName: iconName)
-                .font(.system(size: 58, weight: .semibold))
-                .symbolRenderingMode(.hierarchical)
+        VStack(spacing: 10) {
+            ZStack {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [.indigo.opacity(0.18), .purple.opacity(0.12)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    .frame(width: 92, height: 92)
+
+                Image(systemName: iconName)
+                    .font(.system(size: 43, weight: .semibold))
+                    .symbolRenderingMode(.hierarchical)
+                    .foregroundStyle(.tint)
+            }
 
             Text(title)
                 .font(.title2.bold())
@@ -54,27 +69,57 @@ struct RealPairingView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
+        .padding(.top, 6)
+    }
+
+    private var networkCard: some View {
+        HStack(spacing: 12) {
+            Image(systemName: vpn.connected ? "wifi.router.fill" : "wifi.exclamationmark")
+                .font(.headline)
+                .foregroundStyle(vpn.connected ? .green : .orange)
+                .frame(width: 38, height: 38)
+                .background((vpn.connected ? Color.green : Color.orange).opacity(0.11), in: Circle())
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(vpn.connected ? "LocalDevVPN is connected" : "LocalDevVPN is not detected")
+                    .font(.subheadline.weight(.semibold))
+                Text(vpn.connected ? "rbit can continue into the ios 27 pairing handshake." : "connect LocalDevVPN before the actual pairing handshake can finish.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private var instructions: some View {
         VStack(alignment: .leading, spacing: 12) {
-            instructionRow("1", "connect LocalDevVPN")
-            instructionRow("2", "tap start pairing")
-            instructionRow("3", "open Settings › Privacy & Security › Developer Mode")
-            instructionRow("4", "choose rbit and enter the six-digit pin")
+            Text("how it works")
+                .font(.headline)
+
+            instructionRow("1", "tap start pairing. ios will request access to your local wi-fi network.")
+            instructionRow("2", "open Settings › Privacy & Security › Developer Mode on this iphone.")
+            instructionRow("3", "choose rbit when ios shows the pairing request.")
+            instructionRow("4", "enter the six-digit pin shown by rbit.")
         }
-        .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .padding(16)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 20))
     }
 
     private func instructionRow(_ number: String, _ text: String) -> some View {
         HStack(alignment: .top, spacing: 10) {
             Text(number)
                 .font(.caption.bold())
-                .frame(width: 24, height: 24)
+                .foregroundStyle(.tint)
+                .frame(width: 26, height: 26)
                 .background(.tint.opacity(0.12), in: Circle())
+
             Text(text)
                 .font(.subheadline)
+                .fixedSize(horizontal: false, vertical: true)
+
             Spacer(minLength: 0)
         }
     }
@@ -96,18 +141,19 @@ struct RealPairingView: View {
                 Text("waiting for the pairing handshake to finish…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+
+                Button("cancel pairing") {
+                    pairing.cancel()
+                }
+                .buttonStyle(.bordered)
             }
             .frame(maxWidth: .infinity)
-
-            Button("cancel pairing") {
-                pairing.cancel()
-            }
-            .buttonStyle(.bordered)
 
         case .paired(let name, let model, _):
             VStack(spacing: 10) {
                 Label("pairing complete", systemImage: "checkmark.shield.fill")
                     .font(.headline)
+                    .foregroundStyle(.green)
                 Text("\(name) · \(model)")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -118,11 +164,13 @@ struct RealPairingView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .padding(.vertical, 8)
 
         case .failed(let message):
             VStack(spacing: 12) {
                 Label("pairing failed", systemImage: "exclamationmark.triangle.fill")
                     .font(.headline)
+                    .foregroundStyle(.orange)
                 Text(message)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -133,27 +181,45 @@ struct RealPairingView: View {
             .frame(maxWidth: .infinity)
 
         case .requestingNetwork:
-            ProgressView("requesting local network access…")
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                ProgressView()
+                Text("requesting local wi-fi access…")
+                    .font(.subheadline.weight(.medium))
+                Text("ios should show its local network permission prompt now.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
 
         case .waitingForDevice:
-            ProgressView("waiting for your iphone…")
-                .frame(maxWidth: .infinity)
+            VStack(spacing: 10) {
+                ProgressView()
+                Text("waiting for your iphone…")
+                    .font(.subheadline.weight(.medium))
+                Text("leave this screen open while completing the developer-mode pairing step.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity)
 
         case .idle:
             VStack(spacing: 10) {
-                Label(
-                    vpn.connected ? "LocalDevVPN connected" : "LocalDevVPN not connected",
-                    systemImage: vpn.connected ? "checkmark.circle.fill" : "xmark.circle"
-                )
-                .font(.headline)
-                .foregroundStyle(vpn.connected ? .primary : .secondary)
-
-                Button("start pairing") {
+                Button {
                     pairing.start()
+                } label: {
+                    Label("start pairing", systemImage: "link.badge.plus")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(!vpn.connected)
+
+                if !vpn.connected {
+                    Text("you can start here to trigger the local wi-fi permission request. LocalDevVPN is still required before the final pairing handshake.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                }
             }
             .frame(maxWidth: .infinity)
         }
@@ -164,7 +230,9 @@ struct RealPairingView: View {
         case .paired: return "checkmark.shield.fill"
         case .failed: return "exclamationmark.triangle.fill"
         case .showPin: return "number.square.fill"
-        default: return "iphone.gen3"
+        case .requestingNetwork: return "wifi"
+        case .waitingForDevice: return "antenna.radiowaves.left.and.right"
+        case .idle: return "iphone.gen3"
         }
     }
 
@@ -173,15 +241,20 @@ struct RealPairingView: View {
         case .paired: return "iphone paired"
         case .showPin: return "one last step"
         case .failed: return "pairing needs attention"
-        default: return "pair with rbit"
+        case .requestingNetwork: return "requesting local wi-fi access"
+        case .waitingForDevice: return "waiting for your iphone"
+        case .idle: return "pair with rbit"
         }
     }
 
     private var subtitle: String {
         switch pairing.phase {
         case .paired: return "the rppairing record is saved on-device."
-        case .showPin: return "rbit is now waiting for the developer-mode pairing confirmation."
-        default: return "rbit is using the ios 27 wireless pairing path."
+        case .showPin: return "rbit is waiting for the developer-mode pairing confirmation."
+        case .requestingNetwork: return "rbit needs local wi-fi access to discover and communicate with the pairing device."
+        case .waitingForDevice: return "rbit is advertising the ios 27 wireless pairing service."
+        case .failed: return "the pairing attempt did not complete."
+        case .idle: return "rbit uses the ios 27 wireless pairing path."
         }
     }
 }

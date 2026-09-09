@@ -3,6 +3,8 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @StateObject private var store = RbitStore()
+    @StateObject private var vpn = LocalDevVPNMonitor.shared
+    @StateObject private var pairing = RbitPairingController.shared
     @State private var showingImporter = false
     @State private var showingPairing = false
     @State private var showingSettings = false
@@ -22,6 +24,7 @@ struct ContentView: View {
                     .tabItem { Label("activity", systemImage: "clock.arrow.circlepath") }
                     .tag(2)
             }
+            .tint(.indigo)
         }
         .sheet(isPresented: $showingPairing) { RealPairingView(store: store) }
         .sheet(isPresented: $showingSettings) { SettingsView(store: store) }
@@ -37,15 +40,21 @@ struct ContentView: View {
                 store.addActivity("ipa import failed: \(error.localizedDescription)")
             }
         }
+        .onChange(of: pairing.phase) { _, phase in
+            if case .paired = phase {
+                store.pairingState = .paired
+            }
+        }
     }
 
     private func home(metrics: LayoutMetrics) -> some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: metrics.sectionSpacing) {
-                    header(metrics)
+                    hero(metrics)
                     statusCard(metrics)
                     installCard(metrics)
+                    overviewCard(metrics)
                     quickActions(metrics)
                     recentCard(metrics)
                 }
@@ -54,6 +63,7 @@ struct ContentView: View {
                 .padding(.vertical, metrics.verticalPadding)
                 .frame(maxWidth: .infinity)
             }
+            .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
             .navigationTitle("rbit")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -66,97 +76,125 @@ struct ContentView: View {
         }
     }
 
-    private func header(_ metrics: LayoutMetrics) -> some View {
-        HStack(spacing: metrics.cardSpacing) {
-            Image(systemName: "arrow.down.app.fill")
-                .font(.system(size: metrics.iconSize, weight: .semibold))
-                .frame(width: metrics.iconBox, height: metrics.iconBox)
-                .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: metrics.cornerRadius - 3))
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text("rbit")
-                    .font(metrics.titleFont.bold())
+    private func hero(_ metrics: LayoutMetrics) -> some View {
+        ZStack(alignment: .bottomLeading) {
+            RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                .fill(
+                    LinearGradient(
+                        colors: [.indigo, .purple, .blue],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
+            Circle().fill(.white.opacity(0.13)).frame(width: 150, height: 150).offset(x: 205, y: -50)
+            Circle().fill(.white.opacity(0.08)).frame(width: 110, height: 110).offset(x: 260, y: 55)
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 9) {
+                    Image(systemName: "arrow.down.app.fill").font(.title2.bold())
+                    Text("rbit").font(metrics.titleFont.bold())
+                }
                 Text("research • brainstorm • implement • try again")
-                    .font(metrics.captionFont)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+                    .font(metrics.captionFont.weight(.medium)).opacity(0.9)
+                HStack(spacing: 8) {
+                    HeroBadge(title: vpn.connected ? "vpn ready" : "vpn offline", icon: vpn.connected ? "checkmark" : "xmark")
+                    HeroBadge(title: pairing.isRunning ? "pairing" : (store.pairingState == .paired ? "paired" : "ready"), icon: pairing.isRunning ? "antenna.radiowaves.left.and.right" : "iphone.gen3")
+                }
             }
-
-            Spacer(minLength: 0)
+            .foregroundStyle(.white)
+            .padding(metrics.isTall ? 22 : 18)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: metrics.isTall ? 190 : 168)
+        .clipShape(RoundedRectangle(cornerRadius: metrics.cornerRadius))
+        .shadow(color: .black.opacity(0.12), radius: 16, y: 8)
     }
 
     private func statusCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
-            Text("device status")
-                .font(metrics.headingFont)
-
-            HStack(spacing: metrics.cardSpacing) {
-                StatusPill(title: "localdevvpn", active: store.localDevVPNEnabled, metrics: metrics)
-                StatusPill(title: "pairing", active: store.pairingState == .paired, metrics: metrics)
-                StatusPill(title: "apple id", active: store.appleAccountConnected, metrics: metrics)
+            HStack {
+                Label("device status", systemImage: "iphone.gen3").font(metrics.headingFont)
+                Spacer()
+                Circle().fill(vpn.connected ? .green : .orange).frame(width: 9, height: 9)
             }
-
+            HStack(spacing: 9) {
+                StatusPill(title: "localdevvpn", active: vpn.connected, detail: vpn.interfaceName ?? "not detected", metrics: metrics)
+                StatusPill(title: "pairing", active: store.pairingState == .paired, detail: store.pairingState.rawValue, metrics: metrics)
+                StatusPill(title: "apple id", active: store.appleAccountConnected, detail: store.appleAccountConnected ? "connected" : "not connected", metrics: metrics)
+            }
             Button { showingPairing = true } label: {
-                Label(
-                    store.pairingState == .paired ? "manage pairing" : "pair this iphone",
-                    systemImage: "link"
-                )
-                .font(metrics.buttonFont)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, metrics.buttonVerticalPadding)
+                Label(store.pairingState == .paired ? "manage pairing" : "pair this iphone", systemImage: store.pairingState == .paired ? "checkmark.circle.fill" : "link")
+                    .font(metrics.buttonFont.weight(.semibold))
+                    .frame(maxWidth: .infinity).padding(.vertical, metrics.buttonVerticalPadding)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
         }
         .cardStyle(metrics)
     }
 
     private func installCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
-            Label("install an ipa", systemImage: "shippingbox.fill")
-                .font(metrics.headingFont)
-
-            Text("import an ipa and keep it on-device for the local rbit pipeline.")
-                .font(metrics.bodyFont)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Label("install an ipa", systemImage: "shippingbox.fill").font(metrics.headingFont)
+                    Text("keep imported apps on-device and ready for the signing pipeline.")
+                        .font(metrics.bodyFont).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text("\(store.importedApps.count)").font(.title2.bold().monospacedDigit()).foregroundStyle(.tint)
+            }
             Button { showingImporter = true } label: {
-                Label("add ipa", systemImage: "plus")
-                    .font(metrics.buttonFont.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, metrics.buttonVerticalPadding)
+                Label("add ipa", systemImage: "plus").font(metrics.buttonFont.weight(.semibold))
+                    .frame(maxWidth: .infinity).padding(.vertical, metrics.buttonVerticalPadding)
             }
             .buttonStyle(.borderedProminent)
         }
         .cardStyle(metrics, material: false)
     }
 
+    private func overviewCard(_ metrics: LayoutMetrics) -> some View {
+        VStack(alignment: .leading, spacing: metrics.cardSpacing) {
+            Text("pipeline").font(metrics.headingFont)
+            HStack(spacing: 0) {
+                PipelineStep(icon: "doc.badge.plus", title: "import", active: !store.importedApps.isEmpty)
+                PipelineConnector(active: !store.importedApps.isEmpty)
+                PipelineStep(icon: "signature", title: "sign", active: false)
+                PipelineConnector(active: false)
+                PipelineStep(icon: "iphone.gen3", title: "install", active: false)
+            }
+            Text("import is ready. signing and device installation are the next pipeline stages.")
+                .font(metrics.captionFont).foregroundStyle(.secondary)
+        }
+        .cardStyle(metrics)
+    }
+
     private func quickActions(_ metrics: LayoutMetrics) -> some View {
-        HStack(spacing: metrics.cardSpacing) {
-            QuickAction(title: "pair", icon: "link", metrics: metrics) { showingPairing = true }
-            QuickAction(title: "apps", icon: "square.grid.2x2.fill", metrics: metrics) { selectedTab = 1 }
-            QuickAction(title: "activity", icon: "clock.arrow.circlepath", metrics: metrics) { selectedTab = 2 }
+        VStack(alignment: .leading, spacing: metrics.cardSpacing) {
+            Text("quick actions").font(metrics.headingFont)
+            HStack(spacing: metrics.cardSpacing) {
+                QuickAction(title: "pair", icon: "link", tint: .indigo, metrics: metrics) { showingPairing = true }
+                QuickAction(title: "apps", icon: "square.grid.2x2.fill", tint: .purple, metrics: metrics) { selectedTab = 1 }
+                QuickAction(title: "activity", icon: "clock.arrow.circlepath", tint: .blue, metrics: metrics) { selectedTab = 2 }
+            }
         }
     }
 
     private func recentCard(_ metrics: LayoutMetrics) -> some View {
         VStack(alignment: .leading, spacing: metrics.cardSpacing) {
             HStack {
-                Text("recent")
-                    .font(metrics.headingFont)
+                Label("recent", systemImage: "sparkles").font(metrics.headingFont)
                 Spacer()
-                Text("\(store.activity.count)")
-                    .font(metrics.captionFont.bold())
-                    .foregroundStyle(.secondary)
+                Text("\(store.activity.count)").font(metrics.captionFont.bold().monospacedDigit()).foregroundStyle(.secondary)
             }
-
-            ForEach(Array(store.activity.prefix(metrics.recentRows).enumerated()), id: \.offset) { _, item in
-                Label(item, systemImage: "checkmark.circle.fill")
-                    .font(metrics.bodyFont)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+            if store.activity.isEmpty {
+                Text("nothing has happened yet").font(metrics.bodyFont).foregroundStyle(.secondary)
+            } else {
+                ForEach(Array(store.activity.prefix(metrics.recentRows).enumerated()), id: \.offset) { index, item in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(systemName: index == 0 ? "bolt.fill" : "checkmark.circle.fill")
+                            .foregroundStyle(index == 0 ? Color.indigo : Color.secondary)
+                        Text(item).font(metrics.bodyFont).foregroundStyle(.secondary).lineLimit(2)
+                        Spacer(minLength: 0)
+                    }
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -167,54 +205,34 @@ struct ContentView: View {
         NavigationStack {
             Group {
                 if store.importedApps.isEmpty {
-                    ContentUnavailableView(
-                        "no apps yet",
-                        systemImage: "square.grid.2x2",
-                        description: Text("tap + to import your first ipa")
-                    )
+                    ContentUnavailableView {
+                        Label("no apps yet", systemImage: "square.grid.2x2")
+                    } description: {
+                        Text("import an ipa and it will appear here with its local status.")
+                    } actions: {
+                        Button("import ipa") { showingImporter = true }.buttonStyle(.borderedProminent)
+                    }
                 } else {
                     List {
-                        ForEach(store.importedApps) { app in
-                            HStack(spacing: metrics.cardSpacing) {
-                                Image(systemName: app.systemImage)
-                                    .font(metrics.rowIconFont)
-                                    .frame(width: metrics.rowIconBox, height: metrics.rowIconBox)
-                                    .background(.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(app.name)
-                                        .font(metrics.rowTitleFont)
-                                        .lineLimit(1)
-                                    Text(app.subtitle)
-                                        .font(metrics.captionFont)
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer(minLength: 8)
-
-                                Text(app.status)
-                                    .font(metrics.captionFont)
-                                    .foregroundStyle(.secondary)
+                        Section {
+                            ForEach(store.importedApps) { app in
+                                AppRow(app: app, metrics: metrics)
+                                    .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                        Button(role: .destructive) { store.removeApp(app) } label: {
+                                            Label("delete", systemImage: "trash")
+                                        }
+                                    }
                             }
-                            .padding(.vertical, metrics.rowVerticalPadding)
-                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                                Button(role: .destructive) {
-                                    store.removeApp(app)
-                                } label: {
-                                    Label("delete", systemImage: "trash")
-                                }
-                            }
-                        }
+                        } header: { Text("\(store.importedApps.count) imported") }
                     }
+                    .scrollContentBackground(.hidden)
+                    .background(Color(uiColor: .systemGroupedBackground))
                 }
             }
             .navigationTitle("apps")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { showingImporter = true } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("add ipa")
+                    Button { showingImporter = true } label: { Image(systemName: "plus") }.accessibilityLabel("add ipa")
                 }
             }
         }
@@ -222,10 +240,25 @@ struct ContentView: View {
 
     private func activity(_ metrics: LayoutMetrics) -> some View {
         NavigationStack {
-            List {
-                ForEach(Array(store.activity.enumerated()), id: \.offset) { _, item in
-                    Label(item, systemImage: "checkmark.circle")
-                        .font(metrics.bodyFont)
+            Group {
+                if store.activity.isEmpty {
+                    ContentUnavailableView("no activity", systemImage: "clock.arrow.circlepath")
+                } else {
+                    List {
+                        ForEach(Array(store.activity.enumerated()), id: \.offset) { index, item in
+                            HStack(alignment: .top, spacing: 12) {
+                                ZStack {
+                                    Circle().fill(index == 0 ? Color.indigo.opacity(0.14) : Color.secondary.opacity(0.10))
+                                    Image(systemName: index == 0 ? "bolt.fill" : "checkmark")
+                                        .font(.caption.bold()).foregroundStyle(index == 0 ? .indigo : .secondary)
+                                }
+                                .frame(width: 34, height: 34)
+                                Text(item).font(metrics.bodyFont).frame(maxWidth: .infinity, alignment: .leading).padding(.vertical, 7)
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                    .background(Color(uiColor: .systemGroupedBackground))
                 }
             }
             .navigationTitle("activity")
@@ -235,136 +268,121 @@ struct ContentView: View {
 
 private struct LayoutMetrics {
     let isTall: Bool
-
-    init(height: CGFloat) {
-        isTall = height >= 760
-    }
-
+    init(height: CGFloat) { isTall = height >= 760 }
     var horizontalPadding: CGFloat { isTall ? 20 : 16 }
     var verticalPadding: CGFloat { isTall ? 24 : 16 }
-    var sectionSpacing: CGFloat { isTall ? 22 : 16 }
-    var cardSpacing: CGFloat { isTall ? 14 : 11 }
+    var sectionSpacing: CGFloat { isTall ? 18 : 14 }
+    var cardSpacing: CGFloat { isTall ? 13 : 10 }
     var cornerRadius: CGFloat { isTall ? 24 : 20 }
-    var iconSize: CGFloat { isTall ? 36 : 32 }
-    var iconBox: CGFloat { isTall ? 64 : 56 }
-    var titleFont: Font { isTall ? .title : .title3 }
+    var titleFont: Font { isTall ? .title : .title2 }
     var headingFont: Font { isTall ? .headline : .subheadline.weight(.semibold) }
     var bodyFont: Font { isTall ? .subheadline : .footnote }
     var captionFont: Font { isTall ? .caption : .caption2 }
     var buttonFont: Font { isTall ? .body : .subheadline }
-    var buttonVerticalPadding: CGFloat { isTall ? 7 : 5 }
-    var rowIconFont: Font { isTall ? .title3 : .body }
+    var buttonVerticalPadding: CGFloat { isTall ? 8 : 6 }
     var rowTitleFont: Font { isTall ? .headline : .subheadline.weight(.semibold) }
-    var rowIconBox: CGFloat { isTall ? 46 : 40 }
-    var rowVerticalPadding: CGFloat { isTall ? 6 : 4 }
     var recentRows: Int { isTall ? 4 : 3 }
 }
 
-private extension View {
-    func cardStyle(_ metrics: LayoutMetrics, material: Bool = true) -> some View {
-        padding(metrics.isTall ? 18 : 14)
-            .background(
-                material
-                    ? AnyShapeStyle(.thinMaterial)
-                    : AnyShapeStyle(Color(uiColor: .secondarySystemBackground)),
-                in: RoundedRectangle(cornerRadius: metrics.cornerRadius)
-            )
+private struct HeroBadge: View {
+    let title: String
+    let icon: String
+    var body: some View {
+        Label(title, systemImage: icon)
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 9).padding(.vertical, 6)
+            .background(.white.opacity(0.14), in: Capsule())
     }
 }
 
 private struct StatusPill: View {
     let title: String
     let active: Bool
+    let detail: String
     let metrics: LayoutMetrics
-
     var body: some View {
-        VStack(spacing: 6) {
-            Circle()
-                .fill(active ? Color.green : Color.secondary.opacity(0.35))
-                .frame(width: 9, height: 9)
-            Text(title)
-                .font(metrics.captionFont)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
+        VStack(alignment: .leading, spacing: 5) {
+            HStack(spacing: 6) {
+                Circle().fill(active ? Color.green : Color.secondary.opacity(0.35)).frame(width: 7, height: 7)
+                Text(title).font(metrics.captionFont.weight(.semibold)).lineLimit(1)
+            }
+            Text(detail).font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 10).padding(.vertical, metrics.isTall ? 11 : 9)
+        .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct PipelineStep: View {
+    let icon: String
+    let title: String
+    let active: Bool
+    var body: some View {
+        VStack(spacing: 7) {
+            Image(systemName: icon).font(.subheadline.bold()).frame(width: 38, height: 38)
+                .foregroundStyle(active ? .white : .secondary)
+                .background(active ? AnyShapeStyle(.tint) : AnyShapeStyle(Color.secondary.opacity(0.12)), in: Circle())
+            Text(title).font(.caption2.weight(.semibold)).foregroundStyle(active ? .primary : .secondary)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, metrics.isTall ? 11 : 9)
-        .background(.background.opacity(0.7), in: RoundedRectangle(cornerRadius: 13))
+    }
+}
+
+private struct PipelineConnector: View {
+    let active: Bool
+    var body: some View {
+        Rectangle().fill(active ? Color.indigo.opacity(0.55) : Color.secondary.opacity(0.15))
+            .frame(height: 2).padding(.bottom, 22)
     }
 }
 
 private struct QuickAction: View {
     let title: String
     let icon: String
+    let tint: Color
     let metrics: LayoutMetrics
     let action: () -> Void
-
     var body: some View {
         Button(action: action) {
             VStack(spacing: 7) {
-                Image(systemName: icon)
-                Text(title)
-                    .font(metrics.captionFont.bold())
+                Image(systemName: icon).font(.headline).foregroundStyle(tint)
+                Text(title).font(metrics.captionFont.bold())
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, metrics.isTall ? 15 : 11)
+            .frame(maxWidth: .infinity).padding(.vertical, metrics.isTall ? 15 : 12)
+            .background(tint.opacity(0.06), in: RoundedRectangle(cornerRadius: 17))
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.plain)
     }
 }
 
-private struct PairingView: View {
-    @ObservedObject var store: RbitStore
-    @Environment(\.dismiss) private var dismiss
-
+private struct AppRow: View {
+    let app: RbitAppItem
+    let metrics: LayoutMetrics
     var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 24) {
-                    Image(systemName: store.pairingState == .paired ? "checkmark.shield.fill" : "iphone.gen3")
-                        .font(.system(size: 64))
-                        .symbolRenderingMode(.hierarchical)
-                        .padding(.top, 12)
-
-                    Text(store.pairingState == .paired ? "iphone paired" : "pair with rbit")
-                        .font(.title.bold())
-
-                    if store.pairingState == .paired {
-                        Text("rbit is ready for the local device connection.")
-                            .multilineTextAlignment(.center)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("1. turn on developer mode in settings")
-                            Text("2. choose rbit when asked to pair")
-                            Text("3. enter the six-digit code shown by rbit")
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 18))
-                    }
-
-                    Button {
-                        store.pairingState = .paired
-                        store.addActivity("device paired")
-                    } label: {
-                        Text(store.pairingState == .paired ? "paired" : "start pairing")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(store.pairingState == .paired)
-                }
-                .frame(maxWidth: 520)
-                .padding(20)
-                .frame(maxWidth: .infinity)
+        HStack(spacing: 12) {
+            Image(systemName: app.systemImage).font(metrics.rowTitleFont).foregroundStyle(.white)
+                .frame(width: 46, height: 46)
+                .background(LinearGradient(colors: [.indigo, .purple], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 13))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(app.name).font(metrics.rowTitleFont).lineLimit(1)
+                Text(app.subtitle).font(metrics.captionFont).foregroundStyle(.secondary).lineLimit(1)
             }
-            .navigationTitle("pairing")
-            .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("close") { dismiss() }
-                }
-            }
+            Spacer(minLength: 6)
+            Text(app.status).font(.caption2.weight(.semibold)).foregroundStyle(.green)
+                .padding(.horizontal, 8).padding(.vertical, 5).background(.green.opacity(0.10), in: Capsule())
         }
+        .padding(.vertical, 5)
+    }
+}
+
+private extension View {
+    func cardStyle(_ metrics: LayoutMetrics, material: Bool = true) -> some View {
+        padding(metrics.isTall ? 18 : 14)
+            .background(material ? AnyShapeStyle(.thinMaterial) : AnyShapeStyle(Color(uiColor: .secondarySystemBackground)), in: RoundedRectangle(cornerRadius: metrics.cornerRadius))
+            .overlay {
+                RoundedRectangle(cornerRadius: metrics.cornerRadius).stroke(.white.opacity(0.18), lineWidth: 0.5)
+            }
     }
 }
 
@@ -376,31 +394,28 @@ private struct SettingsView: View {
         NavigationStack {
             Form {
                 Section("connection") {
-                    Toggle("localdevvpn", isOn: $store.localDevVPNEnabled)
+                    LabeledContent("localdevvpn", value: LocalDevVPNMonitor.shared.connected ? "connected" : "not detected")
                     LabeledContent("pairing", value: store.pairingState.rawValue)
                 }
                 Section("apple account") {
                     Toggle("signed-in account", isOn: $store.appleAccountConnected)
-                    Text("account credentials will stay on-device when the signing pipeline is connected.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("credentials will stay on-device when the signing pipeline is connected.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("storage") {
                     LabeledContent("imported ipas", value: "\(store.importedApps.count)")
-                    Text("imported files are kept in rbit's private application support storage, not in the shared Files folder.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Text("imported files are kept in rbit's private application support storage.")
+                        .font(.caption).foregroundStyle(.secondary)
                 }
                 Section("about") {
-                    LabeledContent("version", value: "0.2.0")
+                    LabeledContent("version", value: "0.3.0")
                     LabeledContent("target", value: "ios 27")
+                    LabeledContent("pipeline", value: "local-first")
                 }
             }
             .navigationTitle("settings")
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("done") { dismiss() }
-                }
+                ToolbarItem(placement: .topBarLeading) { Button("done") { dismiss() } }
             }
         }
     }
