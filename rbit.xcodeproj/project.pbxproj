@@ -1,85 +1,38 @@
 // !$*UTF8*$!
 {
-	archiveVersion = 1;
-	classes = {
-	};
-	objectVersion = 77;
-	objects = {
-
-/* Begin PBXBuildFile section */
-		A10000010000000000000001 /* rbitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000110000000000000001 /* rbitApp.swift */; };
-		A10000020000000000000001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000120000000000000001 /* ContentView.swift */; };
-		A10000030000000000000001 /* RbitModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000130000000000000001 /* RbitModels.swift */; };
-		A10000040000000000000001 /* RbitPairingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000140000000000000001 /* RbitPairingBridge.swift */; };
-		A10000050000000000000001 /* RbitPairingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000150000000000000001 /* RbitPairingController.swift */; };
-		A10000060000000000000001 /* RealPairingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000160000000000000001 /* RealPairingView.swift */; };
-		A10000070000000000000001 /* LocalDevVPNMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000170000000000000001 /* LocalDevVPNMonitor.swift */; };
-/* End PBXBuildFile section */
-
-/* Begin PBXFileReference section */
-		A10000100000000000000001 /* rbit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = rbit.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		A10000110000000000000001 /* rbitApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = rbitApp.swift; sourceTree = "<group>"; };
-		A10000120000000000000001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		A10000130000000000000001 /* RbitModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitModels.swift; sourceTree = "<group>"; };
-		A10000140000000000000001 /* RbitPairingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitPairingBridge.swift; sourceTree = "<group>"; };
-		A10000150000000000000001 /* RbitPairingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitPairingController.swift; sourceTree = "<group>"; };
-		A10000160000000000000001 /* RealPairingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealPairingView.swift; sourceTree = "<group>"; };
-		A10000170000000000000001 /* LocalDevVPNMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDevVPNMonitor.swift; sourceTree = "<group>"; };
-/* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		A10000200000000000000001 /* Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXFrameworksBuildPhase section */
-
-/* Begin PBXGroup section */
-		A10000300000000000000001 = {isa = PBXGroup; children = (A10000310000000000000001, A10000320000000000000001, A10000330000000000000001); sourceTree = "<group>"; };
-		A10000310000000000000001 /* rbit */ = {isa = PBXGroup; children = (A10000110000000000000001, A10000120000000000000001, A10000130000000000000001, A10000140000000000000001, A10000150000000000000001, A10000160000000000000001, A10000170000000000000001); path = rbit; sourceTree = "<group>"; };
-		A10000320000000000000001 /* Products */ = {isa = PBXGroup; children = (A10000100000000000000001); name = Products; sourceTree = "<group>"; };
-		A10000330000000000000001 /* Frameworks */ = {isa = PBXGroup; children = (); name = Frameworks; sourceTree = "<group>"; };
-/* End PBXGroup section */
-
-/* Begin PBXNativeTarget section */
-		A10000400000000000000001 /* rbit */ = {isa = PBXNativeTarget; buildConfigurationList = A10000610000000000000001; buildPhases = (A10000900000000000000001, A10000500000000000000001, A10000200000000000000001, A10000510000000000000000001); buildRules = (); dependencies = (); name = rbit; productName = rbit; productReference = A10000100000000000000001; productType = "com.apple.product-type.application"; };
-/* End PBXNativeTarget section */
-
-/* Begin PBXProject section */
-		A10000700000000000000001 /* Project object */ = {isa = PBXProject; attributes = {LastUpgradeCheck = 2700; TargetAttributes = {A10000400000000000000001 = {CreatedOnToolsVersion = 27.0; }; }; }; buildConfigurationList = A10000600000000000000001; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A10000300000000000000001; productRefGroup = A10000320000000000000001; projectDirPath = ""; projectRoot = ""; targets = (A10000400000000000000001); };
-/* End PBXProject section */
-
-/* Begin PBXSourcesBuildPhase section */
-		A10000500000000000000001 /* Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000010000000000000001, A10000020000000000000001, A10000030000000000000001, A10000040000000000000001, A10000050000000000000001, A10000060000000000000001, A10000070000000000000001); runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXSourcesBuildPhase section */
-
-/* Begin PBXResourcesBuildPhase section */
-		A10000510000000000000001 /* Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
-/* End PBXResourcesBuildPhase section */
-
-/* Begin PBXShellScriptBuildPhase section */
-		A10000900000000000000001 /* Build Rust pairing core */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = ();
-			inputFileListPaths = ();
-			inputPaths = ();
-			name = "Build Rust pairing core";
-			outputFileListPaths = ();
-			outputPaths = ();
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "set -e\nif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  bash \"$SRCROOT/rust-core/build-rust.sh\" device\nelse\n  bash \"$SRCROOT/rust-core/build-rust.sh\" simulator\nfi\n";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
-
-/* Begin XCBuildConfiguration section */
-		A10000800000000000000001 /* Debug */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = rbit/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 27.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; LIBRARY_SEARCH_PATHS = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios-sim/release"; "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; MARKETING_VERSION = 0.3.0; OTHER_LDFLAGS = "$(inherited) -lrbit_pairing_ffi -lc++"; PRODUCT_BUNDLE_IDENTIFIER = "com.chayce22315.rbit"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; };
-		A10000800000000000000002 /* Release */ = {isa = XCBuildConfiguration; buildSettings = { ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = rbit/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 27.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; LIBRARY_SEARCH_PATHS = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios-sim/release"; "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; MARKETING_VERSION = 0.3.0; OTHER_LDFLAGS = "$(inherited) -lrbit_pairing_ffi -lc++"; PRODUCT_BUNDLE_IDENTIFIER = "com.chayce22315.rbit"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; };
-/* End XCBuildConfiguration section */
-
-/* Begin XCConfigurationList section */
-		A10000600000000000000001 /* Build configuration list for PBXProject */ = {isa = XCConfigurationList; buildConfigurations = (A10000800000000000000001, A10000800000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-		A10000610000000000000001 /* Build configuration list for PBXNativeTarget */ = {isa = XCConfigurationList; buildConfigurations = (A10000800000000000000001, A10000800000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
-/* End XCConfigurationList section */
-	};
-	rootObject = A10000700000000000000001 /* Project object */;
+ archiveVersion = 1;
+ classes = {};
+ objectVersion = 77;
+ objects = {
+  A10000010000000000000001 = {isa = PBXBuildFile; fileRef = A10000110000000000000001; };
+  A10000020000000000000001 = {isa = PBXBuildFile; fileRef = A10000120000000000000001; };
+  A10000030000000000000001 = {isa = PBXBuildFile; fileRef = A10000130000000000000001; };
+  A10000040000000000000001 = {isa = PBXBuildFile; fileRef = A10000140000000000000001; };
+  A10000050000000000000001 = {isa = PBXBuildFile; fileRef = A10000150000000000000001; };
+  A10000060000000000000001 = {isa = PBXBuildFile; fileRef = A10000160000000000000001; };
+  A10000070000000000000001 = {isa = PBXBuildFile; fileRef = A10000170000000000000001; };
+  A10000100000000000000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = rbit.app; sourceTree = BUILT_PRODUCTS_DIR; };
+  A10000110000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = rbitApp.swift; sourceTree = "<group>"; };
+  A10000120000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+  A10000130000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitModels.swift; sourceTree = "<group>"; };
+  A10000140000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitPairingBridge.swift; sourceTree = "<group>"; };
+  A10000150000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RbitPairingController.swift; sourceTree = "<group>"; };
+  A10000160000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RealPairingView.swift; sourceTree = "<group>"; };
+  A10000170000000000000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDevVPNMonitor.swift; sourceTree = "<group>"; };
+  A10000200000000000000001 = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  A10000300000000000000001 = {isa = PBXGroup; children = (A10000310000000000000001, A10000320000000000000001, A10000330000000000000001); sourceTree = "<group>"; };
+  A10000310000000000000001 = {isa = PBXGroup; children = (A10000110000000000000001, A10000120000000000000001, A10000130000000000000001, A10000140000000000000001, A10000150000000000000001, A10000160000000000000001, A10000170000000000000001); path = rbit; sourceTree = "<group>"; };
+  A10000320000000000000001 = {isa = PBXGroup; children = (A10000100000000000000001); name = Products; sourceTree = "<group>"; };
+  A10000330000000000000001 = {isa = PBXGroup; children = (); name = Frameworks; sourceTree = "<group>"; };
+  A10000400000000000000001 = {isa = PBXNativeTarget; buildConfigurationList = A10000610000000000000001; buildPhases = (A10000900000000000000001, A10000500000000000000001, A10000200000000000000001, A10000510000000000000001); buildRules = (); dependencies = (); name = rbit; productName = rbit; productReference = A10000100000000000000001; productType = "com.apple.product-type.application"; };
+  A10000700000000000000001 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2700; TargetAttributes = {A10000400000000000000001 = {CreatedOnToolsVersion = 27.0; }; }; }; buildConfigurationList = A10000600000000000000001; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base); mainGroup = A10000300000000000000001; productRefGroup = A10000320000000000000001; projectDirPath = ""; projectRoot = ""; targets = (A10000400000000000000001); };
+  A10000500000000000000001 = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000010000000000000001, A10000020000000000000001, A10000030000000000000001, A10000040000000000000001, A10000050000000000000001, A10000060000000000000001, A10000070000000000000001); runOnlyForDeploymentPostprocessing = 0; };
+  A10000510000000000000001 = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+  A10000900000000000000001 = {isa = PBXShellScriptBuildPhase; buildActionMask = 2147483647; files = (); inputFileListPaths = (); inputPaths = (); name = "Build Rust pairing core"; outputFileListPaths = (); outputPaths = (); runOnlyForDeploymentPostprocessing = 0; shellPath = /bin/sh; shellScript = "set -e\nif [ \"$PLATFORM_NAME\" = \"iphoneos\" ]; then\n  bash \"$SRCROOT/rust-core/build-rust.sh\" device\nelse\n  bash \"$SRCROOT/rust-core/build-rust.sh\" simulator\nfi\n"; showEnvVarsInLog = 0; };
+  A10000800000000000000001 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = rbit/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 27.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; LIBRARY_SEARCH_PATHS = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios-sim/release"; "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; MARKETING_VERSION = 0.3.0; OTHER_LDFLAGS = "$(inherited) -lrbit_pairing_ffi -lc++"; PRODUCT_BUNDLE_IDENTIFIER = "com.chayce22315.rbit"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Debug; };
+  A10000800000000000000002 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; CODE_SIGN_STYLE = Automatic; CURRENT_PROJECT_VERSION = 1; DEVELOPMENT_TEAM = ""; ENABLE_PREVIEWS = YES; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = rbit/Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 27.0; LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks"; LIBRARY_SEARCH_PATHS = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; "LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios-sim/release"; "LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = "$(inherited) $(SRCROOT)/rust-core/target/aarch64-apple-ios/release"; MARKETING_VERSION = 0.3.0; OTHER_LDFLAGS = "$(inherited) -lrbit_pairing_ffi -lc++"; PRODUCT_BUNDLE_IDENTIFIER = "com.chayce22315.rbit"; PRODUCT_NAME = "$(TARGET_NAME)"; SUPPORTED_PLATFORMS = "iphoneos iphonesimulator"; SWIFT_EMIT_LOC_STRINGS = YES; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; }; name = Release; };
+  A10000600000000000000001 = {isa = XCConfigurationList; buildConfigurations = (A10000800000000000000001, A10000800000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+  A10000610000000000000001 = {isa = XCConfigurationList; buildConfigurations = (A10000800000000000000001, A10000800000000000000002); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release; };
+ };
+ rootObject = A10000700000000000000001;
 }
