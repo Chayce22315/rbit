@@ -28,6 +28,28 @@ struct RealPairingView: View {
                 }
             }
         }
+        .sheet(isPresented: $showingNetworkRequirement) {
+            NavigationStack {
+                ScrollView(showsIndicators: false) {
+                    networkRequirementCard
+                        .frame(maxWidth: 520)
+                        .padding(20)
+                        .frame(maxWidth: .infinity)
+                }
+                .background(Color(uiColor: .systemGroupedBackground).ignoresSafeArea())
+                .navigationTitle("before pairing")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button("cancel") {
+                            showingNetworkRequirement = false
+                        }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+            .presentationDragIndicator(.visible)
+        }
         .onChange(of: pairing.phase) { _, phase in
             switch phase {
             case .paired:
