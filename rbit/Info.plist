@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDisplayName</key>
+    <string>rbit</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>rbit needs access to your local Wi-Fi network to pair with and communicate with your iPhone.</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_remotepairing-pairable-host._tcp</string>
+    </array>
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>processing</string>
+    </array>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+        <string>com.chayce22315.rbit.continuedProcessing.*</string>
+    </array>
+</dict>
+</plist>
