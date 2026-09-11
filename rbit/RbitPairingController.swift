@@ -41,9 +41,8 @@ final class RbitPairingController: ObservableObject {
     }
 
     func registerBackgroundTask() {
-        // rbit deliberately keeps pairing in the foreground. ios may reject a
-        // continued-processing request with BGTaskScheduler error 3 depending
-        // on entitlement/device state, and pairing must not fail because of that.
+        // pairing deliberately starts in the foreground. ios may reject a
+        // continued-processing request depending on entitlements/device state.
     }
 
     func start() {
@@ -116,13 +115,16 @@ final class RbitPairingController: ObservableObject {
     }
 
     private static func isLocalNetworkDenied(_ error: NWError) -> Bool {
-        guard case .dns(let code) = error else {
-            if case .posix(let code) = error {
-                return Int32(code) == Int32(EACCES)
-            }
+        switch error {
+        case .dns(let code):
+            return Int32(code) == kDNSServiceErr_PolicyDenied
+        case .posix(let code):
+            return code.rawValue == EACCES
+        default:
             return error.localizedDescription.localizedCaseInsensitiveContains("noauth")
+                || error.localizedDescription.localizedCaseInsensitiveContains("permission")
+                || error.localizedDescription.localizedCaseInsensitiveContains("denied")
         }
-        return Int(code) == kDNSServiceErr_PolicyDenied
     }
 
     private func startForegroundPairing() {
@@ -221,7 +223,7 @@ final class RbitPairingController: ObservableObject {
     }
 
     private func makePairingFileURL() -> URL {
-        let directory = FileManager.default.urls(in: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("rbit", isDirectory: true)
             .appendingPathComponent("pairing", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
