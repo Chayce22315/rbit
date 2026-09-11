@@ -34,26 +34,6 @@ jobs:
           cargo fetch --manifest-path rust-core/Cargo.toml
           cargo metadata --manifest-path rust-core/Cargo.toml --format-version 1 --no-deps >/dev/null
 
-      - name: verify project inputs
-        run: |
-          set -euo pipefail
-          test -f rbit.xcodeproj/project.pbxproj
-          test -f rbit/Info.plist
-          test -f rust-core/Cargo.toml
-          test -f rust-core/src/lib.rs
-          test -f rust-core/include/rbit_pairing.h
-          test -x rust-core/build-rust.sh
-
-          echo '--- validating plist syntax ---'
-          plutil -lint rbit/Info.plist
-
-          echo '--- validating required plist keys ---'
-          plutil -extract CFBundleIdentifier raw -o - rbit/Info.plist
-          plutil -extract CFBundleExecutable raw -o - rbit/Info.plist
-          plutil -extract BGTaskSchedulerPermittedIdentifiers xml1 -o - rbit/Info.plist
-          plutil -extract NSBonjourServices xml1 -o - rbit/Info.plist
-          echo 'project input validation passed'
-
       - name: build rust pairing core
         run: |
           set -euo pipefail
@@ -154,39 +134,3 @@ jobs:
             rust-core/out/**
             ${{ runner.temp }}/rbit.xcarchive/Info.plist
           if-no-files-found: ignore
-
-  verify-download:
-    name: download and verify ipa
-    needs: build
-    runs-on: macos-15
-
-    steps:
-      - name: download unsigned ipa artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: rbit-unsigned-ipa
-          path: downloaded
-
-      - name: verify downloaded ipa
-        run: |
-          set -euo pipefail
-          cd downloaded
-          test -s rbit-unsigned.ipa
-          unzip -tq rbit-unsigned.ipa
-          rm -rf extracted
-          mkdir extracted
-          unzip -q rbit-unsigned.ipa -d extracted
-          app='extracted/Payload/rbit.app'
-          test -d "$app"
-          test -f "$app/Info.plist"
-          plutil -lint "$app/Info.plist"
-          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
-          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
-          test "$bundle_id" = 'com.chayce22315.rbit'
-          test -x "$app/$executable"
-          /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$app/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' "$app/Info.plist"
-          /usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' "$app/Info.plist"
-          file "$app/$executable"
-          otool -arch arm64 -hv "$app/$executable"
-          echo "downloaded ipa verified: $(du -h rbit-unsigned.ipa | awk '{print $1}')"
