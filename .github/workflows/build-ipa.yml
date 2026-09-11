@@ -43,10 +43,23 @@ jobs:
           test -f rust-core/src/lib.rs
           test -f rust-core/include/rbit_pairing.h
           test -x rust-core/build-rust.sh
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' rbit/Info.plist
-          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' rbit/Info.plist
-          /usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' rbit/Info.plist
-          /usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' rbit/Info.plist
+
+          echo '--- validating plist syntax ---'
+          plutil -lint rbit/Info.plist
+
+          echo '--- validating required plist values ---'
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' rbit/Info.plist)
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' rbit/Info.plist)
+          bg_id=$(/usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' rbit/Info.plist)
+          bonjour=$(/usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' rbit/Info.plist)
+          printf 'bundle id: %s\n' "$bundle_id"
+          printf 'executable: %s\n' "$executable"
+          printf 'background identifier: %s\n' "$bg_id"
+          printf 'bonjour service: %s\n' "$bonjour"
+          test "$bundle_id" = '$(PRODUCT_BUNDLE_IDENTIFIER)'
+          test "$executable" = '$(EXECUTABLE_NAME)'
+          test "$bg_id" = 'com.chayce22315.rbit.continuedProcessing.*'
+          test "$bonjour" = '_remotepairing-pairable-host._tcp'
 
       - name: build rust pairing core
         run: |
@@ -90,9 +103,12 @@ jobs:
           app="$RUNNER_TEMP/rbit.xcarchive/Products/Applications/rbit.app"
           test -d "$app"
           test -f "$app/Info.plist"
+          plutil -lint "$app/Info.plist"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
           test -n "$executable"
           test -x "$app/$executable"
+          test "$bundle_id" = 'com.chayce22315.rbit'
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$app/Info.plist"
@@ -100,7 +116,7 @@ jobs:
           /usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' "$app/Info.plist"
           file "$app/$executable"
           otool -arch arm64 -hv "$app/$executable"
-          test -d "$app/Assets.car" || { echo "warning: Assets.car not present"; }
+          test -d "$app/Assets.car" || { echo 'warning: Assets.car not present'; }
           find "$app" -maxdepth 2 -type f -print | sort
 
       - name: package unsigned ipa
@@ -122,6 +138,7 @@ jobs:
           unzip -q rbit-unsigned.ipa -d "$RUNNER_TEMP/ipa-verify"
           app="$RUNNER_TEMP/ipa-verify/Payload/rbit.app"
           test -d "$app"
+          test -f "$app/Info.plist"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
           test -x "$app/$executable"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
@@ -165,12 +182,13 @@ jobs:
           rm -rf extracted
           mkdir extracted
           unzip -q rbit-unsigned.ipa -d extracted
-          app="extracted/Payload/rbit.app"
+          app='extracted/Payload/rbit.app'
           test -d "$app"
           test -f "$app/Info.plist"
+          plutil -lint "$app/Info.plist"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
           bundle_id=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist")
-          test "$bundle_id" = "com.chayce22315.rbit"
+          test "$bundle_id" = 'com.chayce22315.rbit'
           test -x "$app/$executable"
           /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$app/Info.plist"
           /usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' "$app/Info.plist"
