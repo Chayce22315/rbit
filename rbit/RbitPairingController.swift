@@ -6,7 +6,8 @@ import Network
 @MainActor
 final class RbitPairingController: ObservableObject {
     static let shared = RbitPairingController()
-    static let taskIdentifier = "com.chayce22315.rbit.continuedProcessing.pairing"
+    static let taskIdentifierBase = "com.chayce22315.rbit.continuedProcessing.pairing"
+    static let permittedTaskIdentifier = "com.chayce22315.rbit.continuedProcessing.pairing.*"
     static let serviceType = "_remotepairing-pairable-host._tcp."
 
     enum Phase: Equatable {
@@ -25,6 +26,7 @@ final class RbitPairingController: ObservableObject {
     private var service: NetService?
     private var serviceDelegate: PairingServiceDelegate?
     private var backgroundTask: BGContinuedProcessingTask?
+    private var activeTaskIdentifier: String?
     private var workerStarted = false
     private var permissionBrowser: NWBrowser?
 
@@ -40,12 +42,8 @@ final class RbitPairingController: ObservableObject {
     }
 
     func registerBackgroundTask() {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.taskIdentifier, using: .main) { task in
-            guard let task = task as? BGContinuedProcessingTask else { return }
-            Task { @MainActor in
-                Self.shared.run(task: task)
-            }
-        }
+        // continued processing tasks use a wildcard-permitted identifier and
+        // register their concrete, unique identifier when the user starts work.
     }
 
     func start() {
@@ -61,6 +59,7 @@ final class RbitPairingController: ObservableObject {
         permissionBrowser = nil
         backgroundTask?.setTaskCompleted(success: false)
         backgroundTask = nil
+        activeTaskIdentifier = nil
         service?.stop()
         service = nil
         serviceDelegate = nil
@@ -126,19 +125,43 @@ final class RbitPairingController: ObservableObject {
 
     private func submitBackgroundTask() async {
         phase = .waitingForDevice
+
+        let identifier = "\(Self.taskIdentifierBase).\(UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased())"
+        activeTaskIdentifier = identifier
+
+        // ios 26+ continued-processing tasks with a wildcard plist entry must
+        // register the fully expanded identifier when the user starts the task.
+        let registered = BGTaskScheduler.shared.register(
+            forTaskWithIdentifier: identifier,
+            using: .main
+        ) { [weak self] task in
+            guard let self, let task = task as? BGContinuedProcessingTask else { return }
+            Task { @MainActor in
+                self.run(task: task)
+            }
+        }
+
+        guard registered else {
+            // Pairing is still useful while rbit remains foregrounded. Fall back
+            // to the real rust pairing host instead of turning a scheduler issue
+            // into a pairing failure.
+            run(task: nil)
+            return
+        }
+
         let request = BGContinuedProcessingTaskRequest(
-            identifier: Self.taskIdentifier,
+            identifier: identifier,
             title: "rbit pairing",
-            subtitle: "waiting for this iphone"
+            subtitle: "waiting for a device"
         )
         request.strategy = .queue
 
         do {
             try await BGTaskScheduler.shared.submitTaskRequest(request)
         } catch {
-            phase = .failed(
-                "could not start the continuous pairing task: \(error.localizedDescription)"
-            )
+            // The foreground fallback keeps the actual rppairing handshake alive
+            // even when the scheduler refuses to launch a continued task.
+            run(task: nil)
         }
     }
 
@@ -247,6 +270,7 @@ final class RbitPairingController: ObservableObject {
         workerStarted = false
         backgroundTask?.setTaskCompleted(success: success)
         backgroundTask = nil
+        activeTaskIdentifier = nil
         if let paired {
             phase = .paired(name: paired.0, model: paired.1, udid: paired.2)
         } else {
