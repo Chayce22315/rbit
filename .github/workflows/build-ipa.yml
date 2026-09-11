@@ -37,7 +37,7 @@ jobs:
       - name: build rust pairing core
         run: |
           set -euo pipefail
-          ./rust-core/build-rust.sh device
+          bash rust-core/build-rust.sh device
           test -s rust-core/out/librbit_pairing_ffi-device.a
           test -s rust-core/out/rbit_pairing.h
           file rust-core/out/librbit_pairing_ffi-device.a
