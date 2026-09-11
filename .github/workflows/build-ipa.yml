@@ -17,17 +17,61 @@ jobs:
 
       - name: verify macos 27 and xcode 27
         run: |
+          set -euo pipefail
           sw_vers -productVersion
           xcodebuild -version
+          xcode-select -p
+          test "$(xcodebuild -version | head -n 1)" = "Xcode 27.0"
 
       - name: prepare rust
         run: |
+          set -euo pipefail
           rustup default stable
           rustc --version
           cargo --version
+          rustup target add aarch64-apple-ios
+          cargo fetch --manifest-path rust-core/Cargo.toml
+          cargo metadata --manifest-path rust-core/Cargo.toml --format-version 1 --no-deps >/dev/null
+
+      - name: verify project inputs
+        run: |
+          set -euo pipefail
+          test -f rbit.xcodeproj/project.pbxproj
+          test -f rbit/Info.plist
+          test -f rust-core/Cargo.toml
+          test -f rust-core/src/lib.rs
+          test -f rust-core/include/rbit_pairing.h
+          test -x rust-core/build-rust.sh
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' rbit/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' rbit/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' rbit/Info.plist
+          /usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' rbit/Info.plist
+
+      - name: build rust pairing core
+        run: |
+          set -euo pipefail
+          ./rust-core/build-rust.sh device
+          test -s rust-core/out/librbit_pairing_ffi-device.a
+          test -s rust-core/out/rbit_pairing.h
+          file rust-core/out/librbit_pairing_ffi-device.a
+
+      - name: compile swift project
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project rbit.xcodeproj \
+            -scheme rbit \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
 
       - name: build unsigned archive
         run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/rbit.xcarchive"
           xcodebuild \
             -project rbit.xcodeproj \
             -scheme rbit \
@@ -39,12 +83,48 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             archive
 
+      - name: verify archive
+        run: |
+          set -euo pipefail
+          app="$RUNNER_TEMP/rbit.xcarchive/Products/Applications/rbit.app"
+          test -d "$app"
+          test -f "$app/Info.plist"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          test -n "$executable"
+          test -x "$app/$executable"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSLocalNetworkUsageDescription' "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' "$app/Info.plist"
+          /usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' "$app/Info.plist"
+          file "$app/$executable"
+          otool -arch arm64 -hv "$app/$executable"
+          test -d "$app/Assets.car" || { echo "warning: Assets.car not present"; }
+          find "$app" -maxdepth 2 -type f -print | sort
+
       - name: package unsigned ipa
         run: |
+          set -euo pipefail
+          rm -rf "$RUNNER_TEMP/ipa"
           mkdir -p "$RUNNER_TEMP/ipa/Payload"
           cp -R "$RUNNER_TEMP/rbit.xcarchive/Products/Applications/rbit.app" "$RUNNER_TEMP/ipa/Payload/"
           cd "$RUNNER_TEMP/ipa"
           zip -qry "$GITHUB_WORKSPACE/rbit-unsigned.ipa" Payload
+
+      - name: verify ipa archive
+        run: |
+          set -euo pipefail
+          test -s rbit-unsigned.ipa
+          unzip -tq rbit-unsigned.ipa
+          rm -rf "$RUNNER_TEMP/ipa-verify"
+          mkdir -p "$RUNNER_TEMP/ipa-verify"
+          unzip -q rbit-unsigned.ipa -d "$RUNNER_TEMP/ipa-verify"
+          app="$RUNNER_TEMP/ipa-verify/Payload/rbit.app"
+          test -d "$app"
+          executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
+          test -x "$app/$executable"
+          /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
+          echo "verified unsigned ipa: $(du -h rbit-unsigned.ipa | awk '{print $1}')"
 
       - name: upload unsigned ipa
         uses: actions/upload-artifact@v4
@@ -52,3 +132,13 @@ jobs:
           name: rbit-unsigned-ipa
           path: rbit-unsigned.ipa
           if-no-files-found: error
+
+      - name: upload build diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbit-build-diagnostics
+          path: |
+            rust-core/out/**
+            ${{ runner.temp }}/rbit.xcarchive/Info.plist
+          if-no-files-found: ignore
