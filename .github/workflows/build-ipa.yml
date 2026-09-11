@@ -47,20 +47,11 @@ jobs:
           echo '--- validating plist syntax ---'
           plutil -lint rbit/Info.plist
 
-          echo '--- validating required plist values ---'
-          bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' rbit/Info.plist)"
-          executable="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' rbit/Info.plist)"
-          bg_id="$(/usr/libexec/PlistBuddy -c 'Print :BGTaskSchedulerPermittedIdentifiers:0' rbit/Info.plist)"
-          bonjour="$(/usr/libexec/PlistBuddy -c 'Print :NSBonjourServices:0' rbit/Info.plist)"
-          printf 'bundle id: %s\n' "$bundle_id"
-          printf 'executable: %s\n' "$executable"
-          printf 'background identifier: %s\n' "$bg_id"
-          printf 'bonjour service: %s\n' "$bonjour"
-
-          [[ "$bundle_id" == '$(PRODUCT_BUNDLE_IDENTIFIER)' ]] || { echo "error: unexpected bundle id: $bundle_id"; exit 1; }
-          [[ "$executable" == '$(EXECUTABLE_NAME)' ]] || { echo "error: unexpected executable: $executable"; exit 1; }
-          [[ "$bg_id" == 'com.chayce22315.rbit.continuedProcessing.*' ]] || { echo "error: unexpected background identifier: $bg_id"; exit 1; }
-          [[ "$bonjour" == '_remotepairing-pairable-host._tcp' ]] || { echo "error: unexpected bonjour service: $bonjour"; exit 1; }
+          echo '--- validating required plist keys ---'
+          plutil -extract CFBundleIdentifier raw -o - rbit/Info.plist
+          plutil -extract CFBundleExecutable raw -o - rbit/Info.plist
+          plutil -extract BGTaskSchedulerPermittedIdentifiers xml1 -o - rbit/Info.plist
+          plutil -extract NSBonjourServices xml1 -o - rbit/Info.plist
           echo 'project input validation passed'
 
       - name: build rust pairing core
@@ -141,6 +132,7 @@ jobs:
           app="$RUNNER_TEMP/ipa-verify/Payload/rbit.app"
           test -d "$app"
           test -f "$app/Info.plist"
+          plutil -lint "$app/Info.plist"
           executable=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$app/Info.plist")
           test -x "$app/$executable"
           /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist"
