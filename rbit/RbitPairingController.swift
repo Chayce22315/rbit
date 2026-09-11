@@ -6,7 +6,8 @@ import Network
 @MainActor
 final class RbitPairingController: ObservableObject {
     static let shared = RbitPairingController()
-    static let taskIdentifier = "com.chayce22315.rbit.continuedProcessing.pairing"
+    static let taskIdentifierBase = "com.chayce22315.rbit.continuedProcessing.pairing"
+    static let permittedTaskIdentifier = "com.chayce22315.rbit.continuedProcessing.pairing.*"
     static let serviceType = "_remotepairing-pairable-host._tcp."
 
     enum Phase: Equatable {
@@ -25,8 +26,8 @@ final class RbitPairingController: ObservableObject {
     private var service: NetService?
     private var serviceDelegate: PairingServiceDelegate?
     private var backgroundTask: BGContinuedProcessingTask?
-    private var workerStarted = false
     private var permissionBrowser: NWBrowser?
+    private var workerStarted = false
 
     private init() {}
 
@@ -40,18 +41,15 @@ final class RbitPairingController: ObservableObject {
     }
 
     func registerBackgroundTask() {
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: Self.taskIdentifier, using: .main) { task in
-            guard let task = task as? BGContinuedProcessingTask else { return }
-            Task { @MainActor in
-                Self.shared.run(task: task)
-            }
-        }
+        // pairing deliberately starts in the foreground. ios may reject a
+        // continued-processing request depending on entitlements/device state.
     }
 
     func start() {
         guard !isRunning else { return }
         workerStarted = false
         pairingFileURL = nil
+        serviceName = nil
         phase = .requestingNetwork
         requestLocalNetworkAndContinue()
     }
@@ -86,23 +84,20 @@ final class RbitPairingController: ObservableObject {
                     guard self.permissionBrowser === browser else { return }
                     self.permissionBrowser?.cancel()
                     self.permissionBrowser = nil
-                    await self.submitBackgroundTask()
+                    self.startForegroundPairing()
 
-                case .waiting(let error):
+                case .waiting(let error), .failed(let error):
+                    self.permissionBrowser?.cancel()
+                    self.permissionBrowser = nil
                     if Self.isLocalNetworkDenied(error) {
-                        self.permissionBrowser?.cancel()
-                        self.permissionBrowser = nil
                         self.phase = .failed(
                             "rbit cannot access the local network. allow rbit in Settings › Privacy & Security › Local Network, then try again."
                         )
+                    } else {
+                        self.phase = .failed(
+                            "could not access the local network: \(error.localizedDescription)"
+                        )
                     }
-
-                case .failed(let error):
-                    self.permissionBrowser?.cancel()
-                    self.permissionBrowser = nil
-                    self.phase = .failed(
-                        "could not access the local network: \(error.localizedDescription)"
-                    )
 
                 case .cancelled:
                     if self.phase == .requestingNetwork {
@@ -120,26 +115,21 @@ final class RbitPairingController: ObservableObject {
     }
 
     private static func isLocalNetworkDenied(_ error: NWError) -> Bool {
-        guard case .dns(let code) = error else { return false }
-        return Int(code) == kDNSServiceErr_PolicyDenied
+        switch error {
+        case .dns(let code):
+            return Int32(code) == kDNSServiceErr_PolicyDenied
+        case .posix(let code):
+            return code.rawValue == EACCES
+        default:
+            return error.localizedDescription.localizedCaseInsensitiveContains("noauth")
+                || error.localizedDescription.localizedCaseInsensitiveContains("permission")
+                || error.localizedDescription.localizedCaseInsensitiveContains("denied")
+        }
     }
 
-    private func submitBackgroundTask() async {
+    private func startForegroundPairing() {
         phase = .waitingForDevice
-        let request = BGContinuedProcessingTaskRequest(
-            identifier: Self.taskIdentifier,
-            title: "rbit pairing",
-            subtitle: "waiting for this iphone"
-        )
-        request.strategy = .queue
-
-        do {
-            try await BGTaskScheduler.shared.submitTaskRequest(request)
-        } catch {
-            phase = .failed(
-                "could not start the continuous pairing task: \(error.localizedDescription)"
-            )
-        }
+        run(task: nil)
     }
 
     private func run(task: BGContinuedProcessingTask?) {
@@ -155,7 +145,7 @@ final class RbitPairingController: ObservableObject {
         }
 
         let outputURL = makePairingFileURL()
-        let contextBits = UInt(bitPattern: Unmanaged.passUnretained(self).toOpaque())
+        let context = Unmanaged.passUnretained(self).toOpaque()
 
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
@@ -186,12 +176,11 @@ final class RbitPairingController: ObservableObject {
                 }
             }
 
-            let context = UnsafeMutableRawPointer(bitPattern: contextBits)
             let call = RbitPairingBridge.shared.runHost(
                 name: "rbit",
                 model: "Mac17,7",
                 outputPath: outputURL.path,
-                context: context,
+                context: UnsafeMutableRawPointer(context),
                 ready: callbackReady,
                 pin: callbackPin
             )
