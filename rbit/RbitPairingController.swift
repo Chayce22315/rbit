@@ -2,6 +2,7 @@ import BackgroundTasks
 import Combine
 import Foundation
 import Network
+import dnssd
 
 @MainActor
 final class RbitPairingController: ObservableObject {
@@ -23,8 +24,7 @@ final class RbitPairingController: ObservableObject {
     @Published private(set) var pairingFileURL: URL?
     @Published private(set) var serviceName: String?
 
-    private var service: NetService?
-    private var serviceDelegate: PairingServiceDelegate?
+    private var servicePublisher: BonjourPairingPublisher?
     private var backgroundTask: BGContinuedProcessingTask?
     private var permissionBrowser: NWBrowser?
     private var workerStarted = false
@@ -59,9 +59,8 @@ final class RbitPairingController: ObservableObject {
         permissionBrowser = nil
         backgroundTask?.setTaskCompleted(success: false)
         backgroundTask = nil
-        service?.stop()
-        service = nil
-        serviceDelegate = nil
+        servicePublisher?.stop()
+        servicePublisher = nil
         workerStarted = false
         phase = .idle
     }
@@ -196,9 +195,8 @@ final class RbitPairingController: ObservableObject {
             Task { @MainActor in
                 guard self.workerStarted else { return }
                 if status == 0 {
-                    self.service?.stop()
-                    self.service = nil
-                    self.serviceDelegate = nil
+                    self.servicePublisher?.stop()
+                    self.servicePublisher = nil
                     self.pairingFileURL = outputURL
                     self.backgroundTask?.progress.completedUnitCount = 100
                     self.finish(success: true, paired: (deviceName, deviceModel, deviceUDID))
@@ -210,15 +208,31 @@ final class RbitPairingController: ObservableObject {
     }
 
     private func publishPairingService(name: String, port: UInt16, txt: [String: Data]) {
-        service?.stop()
-        let netService = NetService(domain: "local.", type: Self.serviceType, name: name, port: Int32(port))
-        netService.setTXTRecord(NetService.data(fromTXTRecord: txt))
-        let delegate = PairingServiceDelegate(controller: self)
-        netService.delegate = delegate
-        serviceDelegate = delegate
-        netService.publish()
-        service = netService
-        serviceName = name
+        servicePublisher?.stop()
+
+        let publisher = BonjourPairingPublisher(
+            name: name,
+            type: Self.serviceType,
+            port: port,
+            txt: txt,
+            onPublished: { [weak self] publishedName in
+                Task { @MainActor in
+                    guard let self, self.workerStarted else { return }
+                    self.serviceName = publishedName
+                    self.phase = .waitingForDevice
+                }
+            },
+            onFailed: { [weak self] error in
+                Task { @MainActor in
+                    guard let self, self.workerStarted else { return }
+                    self.servicePublisher = nil
+                    self.finish(success: false, error: "could not advertise rbit for pairing (\(error)).")
+                }
+            }
+        )
+
+        servicePublisher = publisher
+        publisher.start()
         phase = .waitingForDevice
     }
 
@@ -243,20 +257,117 @@ final class RbitPairingController: ObservableObject {
         }
     }
 
-    private final class PairingServiceDelegate: NSObject, NetServiceDelegate {
-        weak var controller: RbitPairingController?
-        init(controller: RbitPairingController) { self.controller = controller }
+    private final class BonjourPairingPublisher: @unchecked Sendable {
+        private let name: String
+        private let type: String
+        private let port: UInt16
+        private let txt: [String: Data]
+        private let onPublished: (String) -> Void
+        private let onFailed: (String) -> Void
+        private let queue = DispatchQueue(label: "com.chayce22315.rbit.bonjour-publisher")
+        private var serviceRef: DNSServiceRef?
+        private var started = false
 
-        func netServiceDidPublish(_ sender: NetService) {
-            Task { @MainActor [weak controller] in
-                controller?.phase = .waitingForDevice
+        init(
+            name: String,
+            type: String,
+            port: UInt16,
+            txt: [String: Data],
+            onPublished: @escaping (String) -> Void,
+            onFailed: @escaping (String) -> Void
+        ) {
+            self.name = name
+            self.type = type
+            self.port = port
+            self.txt = txt
+            self.onPublished = onPublished
+            self.onFailed = onFailed
+        }
+
+        func start() {
+            queue.async { [weak self] in
+                guard let self, !self.started else { return }
+                self.started = true
+
+                var reference: DNSServiceRef?
+                let txtData = Self.makeTXTRecord(self.txt)
+                let error: DNSServiceErrorType = txtData.withUnsafeBytes { rawBuffer in
+                    self.name.withCString { namePtr in
+                        self.type.withCString { typePtr in
+                            "local.".withCString { domainPtr in
+                                DNSServiceRegister(
+                                    &reference,
+                                    0,
+                                    kDNSServiceInterfaceIndexAny,
+                                    namePtr,
+                                    typePtr,
+                                    domainPtr,
+                                    nil,
+                                    self.port.bigEndian,
+                                    UInt16(txtData.count),
+                                    rawBuffer.baseAddress,
+                                    Self.registrationCallback,
+                                    Unmanaged.passUnretained(self).toOpaque()
+                                )
+                            }
+                        }
+                    }
+                }
+
+                guard error == kDNSServiceErr_NoError, let reference else {
+                    self.started = false
+                    self.onFailed("DNSServiceRegister failed with error \(error.rawValue)")
+                    return
+                }
+
+                self.serviceRef = reference
+                let queueError = DNSServiceSetDispatchQueue(reference, self.queue)
+                guard queueError == kDNSServiceErr_NoError else {
+                    DNSServiceRefDeallocate(reference)
+                    self.serviceRef = nil
+                    self.started = false
+                    self.onFailed("DNSServiceSetDispatchQueue failed with error \(queueError.rawValue)")
+                    return
+                }
             }
         }
 
-        func netService(_ sender: NetService, didNotPublish errorDict: [String : NSNumber]) {
-            Task { @MainActor [weak controller] in
-                controller?.phase = .failed("could not advertise rbit for pairing (\(errorDict)).")
+        func stop() {
+            queue.async { [weak self] in
+                guard let self else { return }
+                self.started = false
+                if let reference = self.serviceRef {
+                    DNSServiceRefDeallocate(reference)
+                    self.serviceRef = nil
+                }
             }
+        }
+
+        private static let registrationCallback: DNSServiceRegisterReply = { _, _, errorCode, name, _, _, context in
+            guard let context else { return }
+            let publisher = Unmanaged<BonjourPairingPublisher>.fromOpaque(context).takeUnretainedValue()
+
+            if errorCode == kDNSServiceErr_NoError {
+                let publishedName = name.map(String.init(cString:)) ?? publisher.name
+                publisher.onPublished(publishedName)
+            } else {
+                publisher.onFailed("Bonjour registration failed with error \(errorCode.rawValue)")
+            }
+        }
+
+        private static func makeTXTRecord(_ values: [String: Data]) -> Data {
+            var record = Data()
+            for (key, value) in values.sorted(by: { $0.key < $1.key }) {
+                let prefix = Data(key.utf8) + (value.isEmpty ? Data() : Data([0x3d]))
+                let entry = prefix + value
+                guard !entry.isEmpty, entry.count <= 255 else { continue }
+                record.append(UInt8(entry.count))
+                record.append(entry)
+            }
+            if record.isEmpty {
+                record.append(0)
+            }
+            return record
         }
     }
 }
