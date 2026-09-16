@@ -1,262 +1,257 @@
-import BackgroundTasks
-import Combine
 import Foundation
 import Network
+import Darwin
 
 @MainActor
 final class RbitPairingController: ObservableObject {
-    static let shared = RbitPairingController()
-    static let taskIdentifierBase = "com.chayce22315.rbit.continuedProcessing.pairing"
-    static let permittedTaskIdentifier = "com.chayce22315.rbit.continuedProcessing.pairing.*"
-    static let serviceType = "_remotepairing-pairable-host._tcp."
-
     enum Phase: Equatable {
         case idle
-        case requestingNetwork
+        case requestingLocalNetwork
         case waitingForDevice
         case showPin(String)
-        case paired(name: String, model: String, udid: String)
+        case paired
         case failed(String)
     }
 
     @Published private(set) var phase: Phase = .idle
-    @Published private(set) var pairingFileURL: URL?
     @Published private(set) var serviceName: String?
 
-    private var service: NetService?
-    private var serviceDelegate: PairingServiceDelegate?
-    private var backgroundTask: BGContinuedProcessingTask?
-    private var permissionBrowser: NWBrowser?
-    private var workerStarted = false
+    private static let serviceType = "_remotepairing-pairable-host._tcp."
 
-    private init() {}
+    private var service: BonjourPairingPublisher?
+    private var serviceNameStorage: String?
+    private var serviceTXT: [String: Data] = [:]
+    private var servicePort: UInt16 = 0
+    private var task: Task<Void, Never>?
 
-    var isRunning: Bool {
-        switch phase {
-        case .requestingNetwork, .waitingForDevice, .showPin:
-            return true
-        default:
-            return false
+    func startForegroundPairing() {
+        task?.cancel()
+        service?.stop()
+        service = nil
+        phase = .waitingForDevice
+        task = Task { [weak self] in
+            await self?.run()
         }
-    }
-
-    func registerBackgroundTask() {
-        // pairing deliberately starts in the foreground. ios may reject a
-        // continued-processing request depending on entitlements/device state.
-    }
-
-    func start() {
-        guard !isRunning else { return }
-        workerStarted = false
-        pairingFileURL = nil
-        serviceName = nil
-        phase = .requestingNetwork
-        requestLocalNetworkAndContinue()
     }
 
     func cancel() {
-        permissionBrowser?.cancel()
-        permissionBrowser = nil
-        backgroundTask?.setTaskCompleted(success: false)
-        backgroundTask = nil
+        task?.cancel()
+        task = nil
         service?.stop()
         service = nil
-        serviceDelegate = nil
-        workerStarted = false
         phase = .idle
     }
 
-    private func requestLocalNetworkAndContinue() {
-        permissionBrowser?.cancel()
+    private func run() async {
+        // Existing pairing host implementation is invoked by the repository's bridge.
+        // The host publishes its actual TCP port and TXT metadata through the ready callback.
+        // Keep that protocol unchanged here and advertise the port with DNS-SD.
+        let context = Unmanaged.passRetained(PairingCallbackContext(controller: self))
+        defer { context.release() }
 
-        let browser = NWBrowser(
-            for: .bonjour(type: Self.serviceType, domain: nil),
-            using: .tcp
-        )
-        permissionBrowser = browser
+        let outputURL = FileManager.default.temporaryDirectory.appendingPathComponent("rbit-pairing.plist")
+        let contextPointer = context.toOpaque()
 
-        browser.stateUpdateHandler = { [weak self, weak browser] state in
-            guard let self else { return }
-
+        let callbackReady: RbitReadyCallback = { rawContext, identifier, port, txtKeys, txtValues, count in
+            guard let rawContext else { return }
+            let callbackContext = Unmanaged<PairingCallbackContext>.fromOpaque(rawContext).takeUnretainedValue()
+            var txt: [String: Data] = [:]
+            if count > 0, let txtKeys, let txtValues {
+                for index in 0..<count {
+                    guard let keyPointer = txtKeys[index], let valuePointer = txtValues[index] else { continue }
+                    txt[String(cString: keyPointer)] = Data(bytes: valuePointer, count: strlen(valuePointer))
+                }
+            }
+            let name = identifier.map(String.init(cString:)) ?? "rbit"
             Task { @MainActor in
-                switch state {
-                case .ready:
-                    guard self.permissionBrowser === browser else { return }
-                    self.permissionBrowser?.cancel()
-                    self.permissionBrowser = nil
-                    self.startForegroundPairing()
-
-                case .waiting(let error), .failed(let error):
-                    self.permissionBrowser?.cancel()
-                    self.permissionBrowser = nil
-                    if Self.isLocalNetworkDenied(error) {
-                        self.phase = .failed(
-                            "rbit cannot access the local network. allow rbit in Settings › Privacy & Security › Local Network, then try again."
-                        )
-                    } else {
-                        self.phase = .failed(
-                            "could not access the local network: \(error.localizedDescription)"
-                        )
-                    }
-
-                case .cancelled:
-                    if self.phase == .requestingNetwork {
-                        self.permissionBrowser = nil
-                    }
-
-                default:
-                    break
-                }
+                callbackContext.controller.publishPairingService(name: name, port: port, txt: txt)
             }
         }
 
-        browser.browseResultsChangedHandler = { _, _ in }
-        browser.start(queue: .main)
-    }
-
-    private static func isLocalNetworkDenied(_ error: NWError) -> Bool {
-        switch error {
-        case .dns(let code):
-            return Int32(code) == kDNSServiceErr_PolicyDenied
-        case .posix(let code):
-            return code.rawValue == EACCES
-        default:
-            return error.localizedDescription.localizedCaseInsensitiveContains("noauth")
-                || error.localizedDescription.localizedCaseInsensitiveContains("permission")
-                || error.localizedDescription.localizedCaseInsensitiveContains("denied")
-        }
-    }
-
-    private func startForegroundPairing() {
-        phase = .waitingForDevice
-        run(task: nil)
-    }
-
-    private func run(task: BGContinuedProcessingTask?) {
-        guard !workerStarted else { return }
-        workerStarted = true
-        backgroundTask = task
-        task?.progress.totalUnitCount = 100
-        task?.progress.completedUnitCount = 5
-        task?.expirationHandler = { [weak self] in
+        let callbackPin: RbitPinCallback = { rawContext, pinPointer in
+            guard let rawContext, let pinPointer else { return }
+            let callbackContext = Unmanaged<PairingCallbackContext>.fromOpaque(rawContext).takeUnretainedValue()
+            let pin = String(cString: pinPointer)
             Task { @MainActor in
-                self?.finish(success: false, error: "ios stopped the pairing task before a device connected.")
+                callbackContext.controller.phase = .showPin(pin)
             }
         }
 
-        let outputURL = makePairingFileURL()
-        let context = Unmanaged.passUnretained(self).toOpaque()
-
-        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
-            guard let self else { return }
-
-            let callbackReady: RbitReadyCallback = { context, serviceID, port, keys, values, count in
-                guard let context else { return }
-                let controller = Unmanaged<RbitPairingController>.fromOpaque(context).takeUnretainedValue()
-                let identifier = serviceID.map { String(cString: $0) } ?? "rbit"
-                var txt: [String: Data] = [:]
-                if let keys, let values {
-                    for index in 0..<count {
-                        guard let key = keys[index], let value = values[index] else { continue }
-                        txt[String(cString: key)] = Data(String(cString: value).utf8)
-                    }
-                }
-                Task { @MainActor in
-                    controller.publishPairingService(name: identifier, port: port, txt: txt)
-                }
-            }
-
-            let callbackPin: RbitPinCallback = { context, pin in
-                guard let context, let pin else { return }
-                let controller = Unmanaged<RbitPairingController>.fromOpaque(context).takeUnretainedValue()
-                let value = String(cString: pin)
-                Task { @MainActor in
-                    controller.phase = .showPin(value)
-                    controller.backgroundTask?.progress.completedUnitCount = 65
-                }
-            }
-
-            let call = RbitPairingBridge.shared.runHost(
+        let call = await Task.detached(priority: .userInitiated) {
+            RbitPairingBridge.shared.runHost(
                 name: "rbit",
                 model: "Mac17,7",
                 outputPath: outputURL.path,
-                context: UnsafeMutableRawPointer(context),
+                context: contextPointer,
                 ready: callbackReady,
                 pin: callbackPin
             )
+        }.value
 
-            let status = call.status
+        if Task.isCancelled { return }
+        if call.status != 0 {
+            let message = RbitPairingBridge.shared.string(call.result.error) ?? "pairing host failed with status \(call.status)"
+            phase = .failed(message)
             var result = call.result
-            let error = RbitPairingBridge.shared.string(result.error)
-            let deviceName = RbitPairingBridge.shared.string(result.deviceName) ?? "iphone"
-            let deviceModel = RbitPairingBridge.shared.string(result.deviceModel) ?? "unknown"
-            let deviceUDID = RbitPairingBridge.shared.string(result.deviceUDID) ?? "unknown"
             RbitPairingBridge.shared.free(&result)
-
-            Task { @MainActor in
-                guard self.workerStarted else { return }
-                if status == 0 {
-                    self.service?.stop()
-                    self.service = nil
-                    self.serviceDelegate = nil
-                    self.pairingFileURL = outputURL
-                    self.backgroundTask?.progress.completedUnitCount = 100
-                    self.finish(success: true, paired: (deviceName, deviceModel, deviceUDID))
-                } else {
-                    self.finish(success: false, error: error ?? "remote pairing failed")
-                }
-            }
+            return
         }
+
+        var result = call.result
+        RbitPairingBridge.shared.free(&result)
+        service?.stop()
+        service = nil
+        phase = .paired
     }
 
     private func publishPairingService(name: String, port: UInt16, txt: [String: Data]) {
         service?.stop()
-        let netService = NetService(domain: "local.", type: Self.serviceType, name: name, port: Int32(port))
-        netService.setTXTRecord(NetService.data(fromTXTRecord: txt))
-        let delegate = PairingServiceDelegate(controller: self)
-        netService.delegate = delegate
-        serviceDelegate = delegate
-        netService.publish()
-        service = netService
+        serviceNameStorage = name
+        serviceTXT = txt
+        servicePort = port
         serviceName = name
         phase = .waitingForDevice
+
+        let publisher = BonjourPairingPublisher(
+            name: name,
+            type: Self.serviceType,
+            port: port,
+            txt: txt,
+            onPublished: { [weak self] publishedName in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.serviceName = publishedName
+                    self.phase = .waitingForDevice
+                }
+            },
+            onFailed: { [weak self] message in
+                guard let self else { return }
+                Task { @MainActor in
+                    self.phase = .failed(message)
+                }
+            }
+        )
+        service = publisher
+        publisher.start()
     }
 
-    private func makePairingFileURL() -> URL {
-        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("rbit", isDirectory: true)
-            .appendingPathComponent("pairing", isDirectory: true)
-        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        return directory.appendingPathComponent("rp_pairing_file.plist")
-    }
-
-    private func finish(success: Bool, paired: (String, String, String)? = nil, error: String? = nil) {
-        permissionBrowser?.cancel()
-        permissionBrowser = nil
-        workerStarted = false
-        backgroundTask?.setTaskCompleted(success: success)
-        backgroundTask = nil
-        if let paired {
-            phase = .paired(name: paired.0, model: paired.1, udid: paired.2)
-        } else {
-            phase = .failed(error ?? "pairing failed")
-        }
-    }
-
-    private final class PairingServiceDelegate: NSObject, NetServiceDelegate {
+    private final class PairingCallbackContext: @unchecked Sendable {
         weak var controller: RbitPairingController?
-        init(controller: RbitPairingController) { self.controller = controller }
+        init(controller: RbitPairingController) {
+            self.controller = controller
+        }
+    }
+}
 
-        func netServiceDidPublish(_ sender: NetService) {
-            Task { @MainActor [weak controller] in
-                controller?.phase = .waitingForDevice
+private final class BonjourPairingPublisher: @unchecked Sendable {
+    let name: String
+    let type: String
+    let port: UInt16
+    let txt: [String: Data]
+    let onPublished: @Sendable (String) -> Void
+    let onFailed: @Sendable (String) -> Void
+
+    private let queue = DispatchQueue(label: "com.pixelated.rbit.bonjour")
+    private var serviceRef: DNSServiceRef?
+    private var started = false
+
+    init(
+        name: String,
+        type: String,
+        port: UInt16,
+        txt: [String: Data],
+        onPublished: @escaping @Sendable (String) -> Void,
+        onFailed: @escaping @Sendable (String) -> Void
+    ) {
+        self.name = name
+        self.type = type
+        self.port = port
+        self.txt = txt
+        self.onPublished = onPublished
+        self.onFailed = onFailed
+    }
+
+    func start() {
+        queue.async { [self] in
+            guard !started else { return }
+            started = true
+
+            let txtData = Self.makeTXTRecord(txt)
+            var reference: DNSServiceRef?
+            let result = txtData.withUnsafeBytes { txtBytes in
+                name.withCString { namePointer in
+                    type.withCString { typePointer in
+                        DNSServiceRegister(
+                            &reference,
+                            0,
+                            0,
+                            namePointer,
+                            typePointer,
+                            "local.".withCString { $0 },
+                            nil,
+                            port.bigEndian,
+                            UInt16(txtBytes.count),
+                            txtBytes.baseAddress,
+                            Self.registrationCallback,
+                            Unmanaged.passUnretained(self).toOpaque()
+                        )
+                    }
+                }
+            }
+
+            guard result == kDNSServiceErr_NoError, let reference else {
+                started = false
+                onFailed("Bonjour registration failed with error \(Int32(result))")
+                return
+            }
+
+            serviceRef = reference
+            let queueError = DNSServiceSetDispatchQueue(reference, queue)
+            guard queueError == kDNSServiceErr_NoError else {
+                DNSServiceRefDeallocate(reference)
+                serviceRef = nil
+                started = false
+                onFailed("DNSServiceSetDispatchQueue failed with error \(Int32(queueError))")
+                return
             }
         }
+    }
 
-        func netService(_ sender: NetService, didNotPublish errorDict: [String : NSNumber]) {
-            Task { @MainActor [weak controller] in
-                controller?.phase = .failed("could not advertise rbit for pairing (\(errorDict)).")
+    func stop() {
+        queue.async { [weak self] in
+            guard let self else { return }
+            started = false
+            if let reference = serviceRef {
+                DNSServiceRefDeallocate(reference)
+                serviceRef = nil
             }
         }
+    }
+
+    private static let registrationCallback: DNSServiceRegisterReply = { _, _, errorCode, name, _, _, context in
+        guard let context else { return }
+        let publisher = Unmanaged<BonjourPairingPublisher>.fromOpaque(context).takeUnretainedValue()
+
+        if errorCode == kDNSServiceErr_NoError {
+            let publishedName = name.map(String.init(cString:)) ?? publisher.name
+            publisher.onPublished(publishedName)
+        } else {
+            publisher.onFailed("Bonjour registration failed with error \(Int32(errorCode))")
+        }
+    }
+
+    private static func makeTXTRecord(_ values: [String: Data]) -> Data {
+        var record = Data()
+        for (key, value) in values.sorted(by: { $0.key < $1.key }) {
+            let prefix = Data(key.utf8) + (value.isEmpty ? Data() : Data([0x3d]))
+            let entry = prefix + value
+            guard !entry.isEmpty, entry.count <= 255 else { continue }
+            record.append(UInt8(entry.count))
+            record.append(entry)
+        }
+        if record.isEmpty {
+            record.append(0)
+        }
+        return record
     }
 }
